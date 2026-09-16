@@ -28,14 +28,6 @@ use Intercessor\Util\Notifier;
 final class Moderation_Handler {
 
 	/**
-	 * Allowed status values accepted through the moderation form.
-	 *
-	 * @since 1.0.0
-	 * @var   string[]
-	 */
-	private const VALID_STATUSES = array( 'approved', 'rejected', 'pending', 'archived', 'private' );
-
-	/**
 	 * Process the moderation form submission and redirect.
 	 *
 	 * @since  1.0.0
@@ -56,7 +48,7 @@ final class Moderation_Handler {
 
 		$listUrl = admin_url( 'admin.php?page=intercessor-requests' );
 
-		if ( $id === 0 || ! in_array( $newStatus, self::VALID_STATUSES, true ) ) {
+		if ( $id === 0 || ! in_array( $newStatus, Prayer_Request_Query::VALID_STATUSES, true ) ) {
 			wp_safe_redirect( add_query_arg( 'error', '1', $listUrl ) );
 			exit;
 		}

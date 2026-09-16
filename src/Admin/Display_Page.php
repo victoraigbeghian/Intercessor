@@ -133,7 +133,7 @@ final class Display_Page {
 	 * @since  1.0.0
 	 * @return array<string, array<string, array{title: string, fields: array}>>
 	 */
-	private function get_schema(): array {
+	public function get_schema(): array {
 		return [
 
 			// ── General ──────────────────────────────────────────────────────

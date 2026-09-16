@@ -402,9 +402,11 @@ final class Prayer_Request_List_Table extends WP_List_Table {
 	 * no page reload or nonce field is needed per-row since the shared
 	 * nonce is localized once via Admin_Loader::enqueue_assets().
 	 *
-	 * @since  1.2.0
-	 * @param  int $id Prayer request primary key.
-	 * @return string  HTML button markup.
+	 * @since 1.1.0
+	 *
+	 * @param int    $id Prayer request primary key.
+	 *
+	 * @return string HTML button markup.
 	 */
 	private function render_admin_pray_button( int $id ): string {
 		$total = ( new \Intercessor\Database\Query\Prayed_Count_Query() )->get_total_for_request( $id );

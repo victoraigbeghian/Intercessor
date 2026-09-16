@@ -35,6 +35,14 @@ use Intercessor\Database\Schema\Prayer_Requests_Schema;
 final class Prayer_Request_Query extends Query {
 
 	/**
+	 * The complete set of valid prayer_requests.status values.
+	 *
+	 * @since 1.0.2
+	 * @var   string[]
+	 */
+	public const VALID_STATUSES = array( 'pending', 'approved', 'rejected', 'archived', 'private' );
+
+	/**
 	 * Shared prefix for all Intercessor table names.
 	 *
 	 * @since 1.0.0

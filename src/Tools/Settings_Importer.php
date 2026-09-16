@@ -156,11 +156,22 @@ final class Settings_Importer extends Abstract_Importer {
 	/**
 	 * Build and cache the map of known setting key → field type.
 	 *
-	 * Builds the schema via Display_Page (instantiated once) and iterates all
-	 * tabs, sections, and fields to extract every key–type pair. The result is
-	 * cached on the instance so the schema is only traversed once per import.
+	 * Reads Display_Page::get_schema() — the single source of truth also
+	 * used to render the Settings page and to sanitize form submissions —
+	 * via a Registry, instead of a hand-maintained duplicate of every
+	 * setting key and its type. The result is cached on the instance so the
+	 * schema is only traversed once per import.
+	 *
+	 * Previously this method built its own copy of the key/type registry
+	 * (three independent copies of the same information existed across
+	 * Display_Page, Settings_Exporter, and this class) and constructed a
+	 * Display_Page instance it never used, because get_schema() was private
+	 * and unreachable. get_schema() is now public static for exactly this
+	 * purpose.
 	 *
 	 * @since  1.0.0
+	 * @since  1.0.2 Reads Display_Page::get_schema() via a Registry instead
+	 *               of a hand-maintained duplicate key/type list.
 	 * @return array<string, string>  Map of setting key → field type string.
 	 */
 	private function known_keys(): array {
@@ -168,74 +179,8 @@ final class Settings_Importer extends Abstract_Importer {
 			return $this->known_keys;
 		}
 
-		// Build schema the same way Display_Page does: via Settings_Exporter's
-		// known key map. We derive it from the Sanitizer's Registry instead of
-		// duplicating the list here — read the schema from Settings_Exporter
-		// which already maintains the authoritative list.
-		$this->known_keys = array();
-
-		// Use the same section map Settings_Exporter uses as the source of truth
-		// for which keys are valid. Derive types from the Sanitizer registry.
-		$display_page = new \Intercessor\Admin\Display_Page();
-
-		// We cannot call get_schema() (private), so we retrieve known keys
-		// from the Settings_Exporter's section map — the most complete list.
-		// Fall back to text type for all; Sanitizer will handle the rest.
-		$known_from_exporter = array(
-			'auto_approve', 'require_login', 'enable_registration', 'generate_username',
-			'generate_password', 'allow_anonymous', 'max_requests_per_day',
-			'show_site_terms', 'terms_label', 'terms_url',
-			'show_privacy_policy', 'privacy_label', 'privacy_url', 'require_terms_acceptance',
-			'profanity_filter', 'profanity_words', 'moderation_role',
-			'notify_admin_new_request', 'notify_requester_received', 'notify_requester_status_change',
-			'admin_email', 'email_from_name', 'email_from_address',
-			'cron_notify_prayed', 'cron_frequency', 'cron_send_hour', 'cron_send_minute',
-			'requests_per_page', 'show_date', 'show_requester_name', 'date_format',
-			'recaptcha_site_key', 'recaptcha_secret_key', 'recaptcha_version',
-			'recaptcha_v3_threshold', 'recaptcha_enable_form', 'recaptcha_enable_history',
-			'export_include_content', 'export_status_filter', 'export_prayed_mode',
-			'delete_data_on_uninstall',
-		);
-
-		// Checkbox keys (value stored as '1' or '').
-		$checkbox_keys = array(
-			'auto_approve', 'require_login', 'enable_registration', 'generate_username',
-			'generate_password', 'allow_anonymous',
-			'show_site_terms', 'show_privacy_policy', 'require_terms_acceptance',
-			'profanity_filter',
-			'notify_admin_new_request', 'notify_requester_received', 'notify_requester_status_change',
-			'cron_notify_prayed',
-			'show_date', 'show_requester_name',
-			'recaptcha_enable_form', 'recaptcha_enable_history',
-			'export_include_content',
-			'delete_data_on_uninstall',
-		);
-
-		$number_keys = array( 'max_requests_per_day', 'requests_per_page', 'recaptcha_v3_threshold',
-			'cron_send_hour', 'cron_send_minute' );
-
-		$email_keys    = array( 'admin_email', 'email_from_address' );
-		$textarea_keys = array( 'profanity_words' );
-		$select_keys   = array( 'recaptcha_version', 'export_status_filter', 'export_prayed_mode',
-			'cron_frequency', 'moderation_role' );
-
-		foreach ( $known_from_exporter as $key ) {
-			if ( in_array( $key, $checkbox_keys, true ) ) {
-				$type = 'checkbox';
-			} elseif ( in_array( $key, $number_keys, true ) ) {
-				$type = 'number';
-			} elseif ( in_array( $key, $email_keys, true ) ) {
-				$type = 'email';
-			} elseif ( in_array( $key, $textarea_keys, true ) ) {
-				$type = 'textarea';
-			} elseif ( in_array( $key, $select_keys, true ) ) {
-				$type = 'select';
-			} else {
-				$type = 'text';
-			}
-
-			$this->known_keys[ $key ] = $type;
-		}
+		$registry         = new Registry( Display_Page::get_schema() );
+		$this->known_keys = $registry->get_field_types();
 
 		return $this->known_keys;
 	}

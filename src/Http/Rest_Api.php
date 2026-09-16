@@ -145,7 +145,12 @@ final class Rest_Api {
 				'permission_callback' => array( $this, 'can_moderate' ),
 				'args'                => array(
 					'id'     => array( 'type' => 'integer', 'required' => true,  'sanitize_callback' => 'absint' ),
-					'status' => array( 'type' => 'string',  'required' => true,  'sanitize_callback' => 'sanitize_key' ),
+					'status' => array(
+						'type'              => 'string',
+						'required'          => true,
+						'sanitize_callback' => 'sanitize_key',
+						'enum'              => Prayer_Request_Query::VALID_STATUSES,
+					),
 					'note'   => array( 'type' => 'string',  'default'  => '',    'sanitize_callback' => 'sanitize_textarea_field' ),
 				),
 			)
@@ -320,13 +325,36 @@ final class Rest_Api {
 	 * profanity filtering, and email notifications that the AJAX form
 	 * handler applies are enforced here as well.
 	 *
+	 * reCAPTCHA is enforced here too when enabled for the form. Previously
+	 * this endpoint had no bot-protection of its own, so anyone could bypass
+	 * the AJAX form's reCAPTCHA check entirely by posting straight to this
+	 * route — the shared pipeline's rate limit and profanity filter still
+	 * ran, but the CAPTCHA-specific defense did not.
+	 *
 	 * @since  1.0.0
 	 * @since  1.0.1 Delegates to Submission_Service (was duplicating logic).
+	 * @since  1.0.2 Enforces reCAPTCHA when enabled, matching the AJAX form
+	 *               handler. This endpoint previously bypassed it entirely.
 	 * @param  WP_REST_Request $request REST request with email, first_name, last_name,
-	 *                                  subject, content, is_anonymous, is_private.
+	 *                                  subject, content, is_anonymous, is_private,
+	 *                                  g-recaptcha-response.
 	 * @return WP_REST_Response         201 with new ID, or 4xx/500 on failure.
 	 */
 	public function create_request( WP_REST_Request $request ): WP_REST_Response {
+		// reCAPTCHA — same check the AJAX form handler performs. Must run
+		// before the submission pipeline so a bot cannot skip it by calling
+		// this endpoint directly instead of submitting the block's form.
+		if ( Recaptcha::is_enabled_for_form() ) {
+			$token = (string) $request->get_param( 'g-recaptcha-response' );
+
+			if ( ! Recaptcha::verify( $token, Recaptcha::get_remote_ip() ) ) {
+				return new WP_REST_Response(
+					array( 'message' => __( 'reCAPTCHA verification failed. Please try again.', 'intercessor' ) ),
+					403
+				);
+			}
+		}
+
 		$allow_private = (bool) Settings::get( 'allow_private_requests', false );
 		$is_private    = $allow_private && (bool) $request->get_param( 'is_private' );
 
@@ -691,6 +719,12 @@ final class Rest_Api {
 			'content'      => array( 'type' => 'string',  'required' => true,  'sanitize_callback' => 'sanitize_textarea_field' ),
 			'is_anonymous' => array( 'type' => 'boolean', 'default'  => false ),
 			'is_private'   => array( 'type' => 'boolean', 'default'  => false ),
+			'g-recaptcha-response' => array(
+				'type'              => 'string',
+				'required'          => false,
+				'default'           => '',
+				'sanitize_callback' => 'sanitize_text_field',
+			),
 		);
 	}
 }

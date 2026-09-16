@@ -226,46 +226,28 @@ abstract class Abstract_Exporter {
 	/**
 	 * Return a generator that yields one CSV row at a time.
 	 *
-	 * The default implementation retrieves all rows from getRows() and yields
-	 * them one by one. Subclasses may override to implement more efficient
-	 * streaming retrieval directly from the database, e.g. using $wpdb with
-	 * LIMIT and OFFSET to paginate through results without loading them all at
-	 * once.
+	 * The default implementation retrieves all rows from get_rows() — the
+	 * method every concrete exporter actually implements — and yields them
+	 * one by one. This is the method stream_csv() calls, so it MUST route
+	 * through get_rows() by default or a subclass's get_rows() is silently
+	 * never invoked.
+	 *
+	 * Declared protected (not private) so a subclass whose result set is too
+	 * large to build in memory (e.g. exporting hundreds of thousands of rows)
+	 * can override this method with a true LIMIT/OFFSET streaming query. No
+	 * current exporter needs that — they already call get_items() with
+	 * 'number' => 0, which loads the full set into memory before get_rows()
+	 * even returns — so the passthrough below is correct for all of them
+	 * today.
 	 *
 	 * @since  1.0.0
+	 * @since  1.0.2 Fixed to actually call get_rows() (previously ignored
+	 *               get_rows() entirely and queried the prayer_requests
+	 *               table directly regardless of which exporter was running).
 	 * @return \Generator Yields arrays of scalar values for each CSV row.
 	 */
-	private function get_rows_stream(): \Generator {
-		global $wpdb;
-
-		$table = $wpdb->prefix . 'intercessor_prayer_requests';
-
-		$limit  = 1000;
-		$offset = 0;
-
-		do {
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
-			$rows = $wpdb->get_results(
-				$wpdb->prepare(
-					"SELECT * FROM %i ORDER BY id ASC LIMIT %d OFFSET %d",
-					$table,
-					$limit,
-					$offset
-				),
-				ARRAY_A
-			);
-
-			if ( empty( $rows ) ) {
-				break;
-			}
-
-			foreach ( $rows as $row ) {
-				yield $row;
-			}
-
-			$offset += $limit;
-
-		} while ( count( $rows ) === $limit );
+	protected function get_rows_stream(): \Generator {
+		yield from $this->get_rows();
 	}
 
 	// -------------------------------------------------------------------------

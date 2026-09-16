@@ -44,9 +44,6 @@ use Intercessor\Database\Query\Requester_Query;
  */
 final class Prayer_Requests_Importer extends Abstract_Importer {
 
-	/** @var string[] Valid prayer request status values. */
-	private const VALID_STATUSES = array( 'pending', 'approved', 'rejected', 'archived', 'private' );
-
 	/**
 	 * Return the import key used for nonce actions and hook names.
 	 *
@@ -112,7 +109,7 @@ final class Prayer_Requests_Importer extends Abstract_Importer {
 		}
 
 		// Normalise status — fall back to 'pending' for unknown values.
-		if ( ! in_array( $status, self::VALID_STATUSES, true ) ) {
+		if ( ! in_array( $status, Prayer_Request_Query::VALID_STATUSES, true ) ) {
 			$status = 'pending';
 		}
 
