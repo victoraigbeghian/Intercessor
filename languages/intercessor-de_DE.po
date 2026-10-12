@@ -1,13 +1,13 @@
 # Copyright (C) 2026 Victor Aigbeghian
 # This file is distributed under the same license as the Intercessor plugin.
-# Victor Aigbeghian <victor@victoraigbeghian.com>, 2026.
+# Victor Aigbeghian <infor@waymakerministry.org>, 2026.
 msgid ""
 msgstr ""
-"Project-Id-Version: Intercessor 1.0.0\n"
+"Project-Id-Version: Intercessor 1.1.1\n"
 "Report-Msgid-Bugs-To: https://github.com/victoraigbeghian/intercessor/issues\n"
 "POT-Creation-Date: 2026-04-07 19:36+0000\n"
-"PO-Revision-Date: 2026-04-08 21:27+0000\n"
-"Last-Translator: \n"
+"PO-Revision-Date: 2026-10-04 00:00+0000\n"
+"Last-Translator: Victor Aigbeghian\n"
 "Language-Team: German\n"
 "Language: de_DE\n"
 "MIME-Version: 1.0\n"
@@ -421,7 +421,7 @@ msgstr "Ablehnen"
 
 #: src/Admin/PrayerRequestListTable.php:106
 msgid "Mark Private"
-msgstr "Mark Private"
+msgstr "Als privat markieren"
 
 #: src/Admin/PrayerRequestListTable.php:107
 #: templates/admin/request-detail.php:291

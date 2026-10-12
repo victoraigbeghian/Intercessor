@@ -33,6 +33,14 @@ if ( ! class_exists( 'WP_List_Table' ) ) {
 final class Requester_List_Table extends WP_List_Table {
 
 	/**
+	 * User-meta key backing the "Number of requesters per page" Screen Option.
+	 *
+	 * @since 1.1.1
+	 * @var   string
+	 */
+	public const PER_PAGE_OPTION = 'intercessor_requesters_per_page';
+
+	/**
 	 * Query instance used to fetch and count requester rows.
 	 *
 	 * @since 1.0.0
@@ -105,7 +113,8 @@ final class Requester_List_Table extends WP_List_Table {
 	 * @return void
 	 */
 	public function prepare_items(): void {
-		$perPage     = 20;
+		// Honours the "Number of requesters per page" Screen Option.
+		$perPage     = max( 1, (int) $this->get_items_per_page( self::PER_PAGE_OPTION, 20 ) );
 		$currentPage = $this->get_pagenum();
 
 		$args = array(
@@ -122,11 +131,14 @@ final class Requester_List_Table extends WP_List_Table {
 			array(
 				'total_items' => $total,
 				'per_page'    => $perPage,
-				'total_pages' => ceil( $total / $perPage ),
+				'total_pages' => (int) ceil( $total / $perPage ),
 			)
 		);
 
-		$this->_column_headers = array( $this->get_columns(), array(), $this->get_sortable_columns() );
+		// Hidden columns come from the Screen Options "Columns" checklist.
+		$hidden = $this->screen ? get_hidden_columns( $this->screen ) : array();
+
+		$this->_column_headers = array( $this->get_columns(), $hidden, $this->get_sortable_columns() );
 	}
 
 	/**

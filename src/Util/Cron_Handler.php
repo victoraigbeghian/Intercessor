@@ -223,7 +223,7 @@ final class Cron_Handler {
 	 * Fires on the 'intercessor_pray_notification' cron event.
 	 *
 	 * @since  1.0.0
-	 * @since  1.2.0 Includes 'private' status requests so requesters whose
+	 * @since  1.1.1 Includes 'private' status requests so requesters whose
 	 *               requests are hidden from the public Prayer Wall are
 	 *               still notified when an admin/prayer warrior prays for
 	 *               them via Admin_Loader::handle_admin_record_prayer().
