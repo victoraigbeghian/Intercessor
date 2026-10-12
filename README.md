@@ -1,8 +1,8 @@
 # Intercessor
 
-> A complete WordPress plugin for managing prayer requests — with public submission, anonymous and private sharing, requester management, moderation workflows, exports, reports, and prayer activity tracking.
+> The most effective and complete WordPress plugin for managing prayer requests — with public submission, anonymous and private sharing, requester management, moderation workflows, exports, reports, and prayer activity tracking.
 
-[![WordPress Plugin Version](https://img.shields.io/badge/version-1.1.0-blue)](https://github.com/victoraigbeghian/intercessor/releases)
+[![WordPress Plugin Version](https://img.shields.io/badge/version-1.1.1-blue)](https://github.com/victoraigbeghian/intercessor/releases)
 [![License: GPL v2+](https://img.shields.io/badge/License-GPL%20v2%2B-blue.svg)](https://www.gnu.org/licenses/gpl-2.0.html)
 [![Requires PHP](https://img.shields.io/badge/PHP-8.0%2B-purple)](https://php.net)
 [![Requires WordPress](https://img.shields.io/badge/WordPress-6.3%2B-blue)](https://wordpress.org)
@@ -87,6 +87,7 @@ intercessor/
 │   ├── Deactivator.php                Deactivation: cron, rewrite flush
 │   ├── Requirements.php               PHP/WP version gate
 │   ├── Roles.php                      3 roles, 6 caps, constants, static methods
+│   ├── Upgrader.php                   Re-syncs roles/caps when the plugin version changes
 │   │
 │   ├── Admin/
 │   │   ├── Admin_Loader.php           Menus, assets, all admin_post hooks
@@ -168,6 +169,7 @@ intercessor/
 ├── templates/
 │   ├── admin/
 │   │   ├── dashboard.php
+│   │   ├── prayer-warrior-requests.php  Read-only request list for prayer warriors
 │   │   ├── request-detail.php         Single request + notes panel
 │   │   ├── requesters.php             List + branches to detail view
 │   │   ├── requests.php
@@ -214,12 +216,14 @@ Three custom roles and six custom capabilities are registered on activation.
 
 | Capability | `administrator` | `prayer_manager` | `prayer_warrior` |
 |---|:---:|:---:|:---:|
-| `edit_prayers` | ✓ | ✓ | ✓ |
+| `edit_prayers` | ✓ | ✓ | — |
 | `manage_prayer_settings` | ✓ | ✓ | — |
-| `view_prayer_reports` | ✓ | ✓ | ✓ |
-| `export_prayer_reports` | ✓ | ✓ | ✓ |
+| `view_prayer_reports` | ✓ | ✓ | — |
+| `export_prayer_reports` | ✓ | ✓ | — |
 | `view_prayer_sensitive_data` | ✓ | ✓ | — |
 | `read_private_prayers` | — | — | ✓ |
+
+Prayer warriors use the read-only Prayer Requests list (approved and private requests, no requester contact details) and can record prayers; they cannot moderate, view reports, or export data.
 
 The `requester` role (`read` only) is assigned automatically when a guest submitter is registered as a WordPress user.
 
@@ -308,6 +312,20 @@ Please open an issue before starting work on significant changes.
 ---
 
 ## Changelog
+
+### 1.1.1
+* Redesigned the Prayer Requests page for prayer warriors: a read-only list of approved and private requests showing the full message (messages over 100 words collapse behind a "Read full request" dropdown), with "I prayed for this" as the only action.
+* Prayer warriors no longer see requester email addresses, the names of anonymous requesters, moderation controls, or links to the request and requester detail screens.
+* Prayer warriors can now record prayers from the admin list.
+* Narrowed the Prayer Warrior role: it no longer has `edit_prayers`, report viewing or CSV export. Warriors use the new read-only Prayer Requests list instead.
+* Added Screen Options (items per page and column toggles) to the Prayer Requests and Requesters admin lists.
+* Added "I prayed for this" to the admin Prayer Requests list and request detail view, including private requests; the prayed-for notification email now covers private requests too.
+* Added a content preview beneath each subject in the admin Prayer Requests list, and status buttons that now match each request's current status.
+* Added contextual Help tabs to the Prayer Requests page, with separate content for prayer managers and prayer warriors.
+* Enforced the `read_private_prayers` capability (previously defined but unused).
+* Added an upgrade routine that re-syncs roles and capabilities on in-place updates; no deactivate/reactivate is needed.
+* Fixed a duplicate "Prayer Requests" menu entry for users who can both moderate and read private requests.
+* Fixed `Admin_Loader::intercessor_is_admin_page()` returning an undefined variable, and `get_admin_current_screen()` calling a method that does not exist.
 
 ### 1.1.0
 * Added single prayer request detail page in admin with notes panel and live prayer count.

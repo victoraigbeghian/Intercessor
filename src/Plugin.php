@@ -83,13 +83,20 @@ final class Plugin {
 	 * @return void
 	 */
 	public function init(): void {
+		// Runs first: cheaply detects an in-place version change and
+		// re-syncs role capabilities if needed, before anything else checks
+		// current_user_can() against them this request.
+		Upgrader::maybe_upgrade();
+
 		// Database tables are registered early so BerlinDB can install them.
 		Database\Table_Registry::register();
 
+		// Admin hooks are only needed in the admin area.
 		if ( is_admin() ) {
 			( new Admin_Loader() )->register();
 		}
 
+		// Public-facing hooks are needed on every page load.
 		( new Public_Loader() )->register();
 		( new Block_Loader() )->register();
 		( new Rest_Api() )->register();

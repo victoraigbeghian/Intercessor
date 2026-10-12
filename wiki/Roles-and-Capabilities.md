@@ -12,7 +12,7 @@ The primary moderation role. Can review, approve, reject, and manage all prayer 
 ### Prayer Warrior
 A trusted community member who can view all prayer requests including private ones and access reports, but cannot moderate or change settings.
 
-**Capabilities:** `view_prayer_reports`, `read_private_prayers`
+**Capabilities:** `read_private_prayers`
 
 ### Requester
 A basic role for users who submit prayer requests. Can view and manage only their own requests through the Prayer History block.

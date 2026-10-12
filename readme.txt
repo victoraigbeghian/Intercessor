@@ -4,9 +4,11 @@ Tags:              prayer, prayer request, church, ministry, community
 Requires at least: 6.3
 Tested up to:      7.1
 Requires PHP:      8.0
-Stable tag:        1.1.0
+Stable tag:        1.1.1
 License:           GPL-2.0-or-later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
+
+Effective prayer request management on WordPress.
 
 == Description ==
 
@@ -112,14 +114,16 @@ Yes. Use **Intercessor → Tools** to download CSV exports of all data before re
 
 == Screenshots ==
 
-1. Prayer Form block on the front end.
-2. Prayer Wall block with "I prayed for this" counters.
-3. Admin prayer requests list with status filters and bulk actions.
-4. Single request detail view with moderator notes panel.
-5. Requester detail page — Overview tab with profile and stats.
-6. Requester detail page — Notes tab with requester notes and prayer notes.
-7. Settings page with tabbed configuration.
-8. Tools / Export page.
+1.	Prayer Form block on the front end.
+2.	Prayer Wall block with "I prayed for this" counters.
+3.	Dashboard with an overview of prayer activity and requests awaiting moderation.
+4.	Admin prayer requests list with status filters, search, and bulk actions.
+5.	Add Prayer Request screen for recording a request on behalf of another person.
+6.	Prayer History login.
+7.	Requester detail page with profile and stats.
+8.	Settings: General tab with submission and approval rules.
+9.	Prayer Reports.
+10.	Import / Export tools.
 
 == Source Code & Development ==
 
@@ -135,6 +139,20 @@ The Gutenberg block editor scripts in `assets/js/blocks/` are built from their u
 Other JavaScript files in `assets/js/public/` and `assets/js/admin/` are hand-written and shipped unminified.
 
 == Changelog ==
+
+= 1.1.1 =
+* Redesigned the Prayer Requests page for prayer warriors: a read-only list of approved and private requests showing the full message (messages over 100 words collapse behind a "Read full request" dropdown), with "I prayed for this" as the only action.
+* Prayer warriors no longer see requester email addresses, the names of anonymous requesters, moderation controls, or links to the request and requester detail screens.
+* Prayer warriors can now record prayers from the admin list.
+* Narrowed the Prayer Warrior role: it no longer has edit_prayers, report viewing or CSV export. Warriors use the new read-only Prayer Requests list instead.
+* Added Screen Options (items per page and column toggles) to the Prayer Requests and Requesters admin lists.
+* Added "I prayed for this" to the admin Prayer Requests list and request detail view, including private requests; the prayed-for notification email now covers private requests too.
+* Added a content preview beneath each subject in the admin Prayer Requests list, and status buttons that now match each request's current status.
+* Added contextual Help tabs to the Prayer Requests page, with separate content for prayer managers and prayer warriors.
+* Enforced the read_private_prayers capability (previously defined but unused).
+* Added an upgrade routine that re-syncs roles and capabilities on in-place updates; no deactivate/reactivate is needed.
+* Fixed a duplicate "Prayer Requests" menu entry for users who can both moderate and read private requests.
+* Fixed Admin_Loader::intercessor_is_admin_page() returning an undefined variable, and get_admin_current_screen() calling a method that does not exist.
 
 = 1.1.0 =
 * Added single prayer request detail page in the admin — moderators can view all request details, add private or public notes, and see the live prayer count in one place.
@@ -158,6 +176,9 @@ Other JavaScript files in `assets/js/public/` and `assets/js/admin/` are hand-wr
 * Initial release.
 
 == Upgrade Notice ==
+
+= 1.1.1 =
+Prayer Warriors now have read-only access to approved and private Prayer Requests, with no requester contact details. They can no longer moderate, report, or export requests. Capabilities re-sync on update. Adds Screen Options and contextual Help.
 
 == External Services ==
 

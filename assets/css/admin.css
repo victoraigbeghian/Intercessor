@@ -58,6 +58,58 @@
 .intercessor-status.archived { background: #e2e3e5; color: #383d41; }
 .intercessor-status.private  { background: #e8d5f5; color: #5a1e82; }
 
+/* ── Content preview excerpt beneath Subject in list table ── */
+.intercessor-row-excerpt {
+    margin: 0.25rem 0 0;
+    color: #646970;
+    font-size: 0.85rem;
+    font-weight: 400;
+    font-style: normal;
+    max-width: 50em;
+}
+
+/* ── Prayer warrior list: full message + collapsible long messages ── */
+.intercessor-warrior-requests .intercessor-warrior-message {
+    margin: 0.35rem 0 0;
+    max-width: 60em;
+    color: #3c434a;
+    font-size: 0.9rem;
+}
+
+.intercessor-warrior-requests .intercessor-warrior-message p {
+    margin: 0 0 0.5em;
+}
+
+.intercessor-row-details {
+    margin-top: 0.35rem;
+    max-width: 60em;
+}
+
+.intercessor-row-details__summary {
+    cursor: pointer;
+    list-style: none;
+    color: #646970;
+    font-size: 0.85rem;
+}
+
+.intercessor-row-details__summary::-webkit-details-marker {
+    display: none;
+}
+
+.intercessor-row-details__toggle {
+    margin-left: 0.25rem;
+}
+
+.intercessor-row-details__less,
+.intercessor-row-details[open] .intercessor-row-details__more,
+.intercessor-row-details[open] .intercessor-row-details__preview {
+    display: none;
+}
+
+.intercessor-row-details[open] .intercessor-row-details__less {
+    display: inline;
+}
+
 /* ── Moderate action buttons in table ── */
 .intercessor-moderate-actions form {
     display: inline-block;

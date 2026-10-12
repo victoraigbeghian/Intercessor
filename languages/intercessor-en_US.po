@@ -3,11 +3,11 @@
 # Victor Aigbeghian <victor@victoraigbeghian.com>, 2026.
 msgid ""
 msgstr ""
-"Project-Id-Version: Intercessor 1.0.0\n"
+"Project-Id-Version: Intercessor 1.1.1\n"
 "Report-Msgid-Bugs-To: https://github.com/victoraigbeghian/intercessor/issues\n"
 "POT-Creation-Date: 2026-04-07 19:36+0000\n"
 "PO-Revision-Date: 2026-04-08 21:10+0000\n"
-"Last-Translator: \n"
+"Last-Translator: Victor Aigbeghian\n"
 "Language-Team: English (United States)\n"
 "Language: en_US\n"
 "MIME-Version: 1.0\n"

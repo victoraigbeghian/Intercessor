@@ -27,6 +27,7 @@ Visitors submit prayer requests through a front-end form. Site administrators mo
 - [GitHub Repository](https://github.com/victoraigbeghian/intercessor)
 - [Submit a Bug Report](https://github.com/victoraigbeghian/intercessor/issues)
 - [Live Demo — Waymaker Ministry](https://www.waymakerministry.org/prayer-request/)
+- [Documentation](https://www.intercessorwp.com)
 
 ## Requirements
 

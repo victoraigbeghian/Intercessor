@@ -111,6 +111,9 @@ final class Admin_Loader {
 		
 		// Export handlers.
 		( new Tools_Admin_Page() )->register();
+
+		// Screen options for list tables.
+		add_filter( 'set-screen-option', array( $this, 'set_screen_option' ), 10, 3 );
 	}
 
 	// -------------------------------------------------------------------------
@@ -166,7 +169,7 @@ final class Admin_Loader {
 				 sprintf(
 					/* translators: %s: URL to the plugin's documentation --- IGNORE --- */
 					'<a href="%s" target="_blank" rel="noopener noreferrer">%s</a>',
-					esc_url( 'https://github.com/victoraigbeghian/intercessor/wiki' ),
+					esc_url( 'https://www.intercessorwp.com' ),
 					esc_html__( 'Documentation', 'intercessor' )
 				),
 				sprintf(
@@ -236,7 +239,7 @@ final class Admin_Loader {
 			}
 		}
 
-		add_submenu_page(
+		$requests_hook = add_submenu_page(
 			'intercessor',
 			__( 'Prayer Requests', 'intercessor' ),
 			$requests_label,
@@ -245,7 +248,34 @@ final class Admin_Loader {
 			array( $this, 'render_requests_page' )
 		);
 
-		add_submenu_page(
+		// Screen Options (per-page + column toggles) are registered on the
+		// page's load-{hook} action: it fires before any output, which is
+		// the only point WordPress renders the Screen Options tab from.
+		if ( $requests_hook ) {
+			add_action( "load-{$requests_hook}", array( $this, 'add_prayers_screen_options' ) );
+			add_action( "load-{$requests_hook}", array( $this, 'render_contextual_help' ) );
+		}
+
+		// Menu item for prayer warriors to view all prayer requests.
+		// Only registered for users who cannot already reach the full
+		// moderation list above, so staff never see two identical entries.
+		if ( current_user_can( 'read_private_prayers' ) && ! current_user_can( 'edit_prayers' ) ) {
+			$warrior_hook = add_submenu_page(
+				'intercessor',
+				__( 'Prayer Requests', 'intercessor' ),
+				__( 'Prayer Requests', 'intercessor' ),
+				'read_private_prayers',
+				'intercessor-private-requests',
+				array( $this, 'render_private_requests_page' )
+			);
+
+			if ( $warrior_hook ) {
+				add_action( "load-{$warrior_hook}", array( $this, 'add_warrior_prayers_screen_options' ) );
+				add_action( "load-{$warrior_hook}", array( $this, 'render_warrior_contextual_help' ) );
+			}
+		}
+
+		$requesters_hook = add_submenu_page(
 			'intercessor',
 			__( 'Requesters', 'intercessor' ),
 			__( 'Requesters', 'intercessor' ),
@@ -253,6 +283,10 @@ final class Admin_Loader {
 			'intercessor-requesters',
 			array( $this, 'render_requesters_page' )
 		);
+
+		if ( $requesters_hook ) {
+			add_action( "load-{$requesters_hook}", array( $this, 'add_requesters_screen_options' ) );
+		}
 
 		add_submenu_page(
 			'intercessor',
@@ -394,7 +428,8 @@ final class Admin_Loader {
 	 * AJAX handler that records a "prayed for" interaction from wp-admin.
 	 *
 	 * Unlike the public Public_Loader::handle_record_prayer() handler, this
-	 * is gated by the `edit_prayers` capability rather than by the request's
+	 * is gated by capability (`edit_prayers` for managers, or
+	 * `read_private_prayers` for prayer warriors) rather than by the request's
 	 * public/approved state — it is the only way for a private prayer
 	 * request (never shown on the front-end Prayer Wall) to accumulate
 	 * prayed-for interactions. The count is attributed to the current
@@ -408,7 +443,7 @@ final class Admin_Loader {
 	 * @return void
 	 */
 	public function handle_admin_record_prayer(): void {
-		if ( ! current_user_can( 'edit_prayers' ) ) {
+		if ( ! current_user_can( 'edit_prayers' ) && ! current_user_can( 'read_private_prayers' ) ) {
 			wp_send_json_error( array( 'message' => __( 'You do not have permission to perform this action.', 'intercessor' ) ), 403 );
 		}
 
@@ -427,7 +462,7 @@ final class Admin_Loader {
 		$prayerQuery = new \Intercessor\Database\Query\Prayer_Request_Query();
 		$request     = $prayerQuery->get_item( $requestId );
 
-		// No is_public()/is_approved() gate here — admins and prayer
+		// No is_public()/is_approved() gate here — managers and prayer
 		// warriors may record a prayer on a request in any status,
 		// including 'private', which the public handler always rejects.
 		if ( ! $request ) {
@@ -664,6 +699,33 @@ final class Admin_Loader {
 	}
 
 	/**
+	 * Render the prayer requests page for a prayer warrior.
+	 *
+	 * Shows every prayer request (including private ones) in a restricted,
+	 * read-only list table: no requester email, no requester name for
+	 * anonymous requests, no moderation or bulk actions, and no link to the
+	 * detail view or requester pages. Each row carries the full request
+	 * message (collapsed behind a dropdown when long) and the
+	 * "I prayed for this" button; prayed-for counts are recorded for
+	 * private requests too.
+	 *
+	 * The ?view={id} detail screen is deliberately not routed here — it
+	 * exposes requester details and moderation controls.
+	 *
+	 * @since  1.1.1
+	 * @return void
+	 */
+	public function render_private_requests_page(): void {
+		if ( ! current_user_can( 'read_private_prayers' ) ) {
+			wp_die( esc_html__( 'You do not have permission to access this page.', 'intercessor' ) );
+		}
+
+		$table = new Prayer_Request_List_Table( Prayer_Request_List_Table::MODE_WARRIOR );
+		$table->prepare_items();
+		require INTERCESSOR_DIR . 'templates/admin/prayer-warrior-requests.php';
+	}
+
+	/**
 	 * Render the requesters page.
 	 *
 	 * When ?requester_id={id} is present, the template branches to the
@@ -708,5 +770,332 @@ final class Admin_Loader {
 	 */
 	public function render_settings_page(): void {
 		$this->displayPage->render();
+	}
+
+	/**
+	 * Whether the current request is one of the Intercessor admin pages.
+	 *
+	 * @since  1.1.1 
+	 * @return bool
+	 */
+	public function intercessor_is_admin_page() : bool {
+		$ret = false;
+
+		// Bail if the wp_loaded hook has not been called or it is not an admin.
+		if ( is_admin() && did_action( 'wp_loaded' ) ) {
+			// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			$page        = isset( $_GET['page'] ) ? sanitize_text_field( wp_unslash( $_GET['page'] ) ) : '';
+			$admin_pages = array(
+				'intercessor-requests',
+				'intercessor-private-requests',
+				'intercessor-requesters',
+				'intercessor-tools',
+				'intercessor-settings',
+				'intercessor-upgrades',
+				'intercessor-reports',
+			);
+
+			$ret = in_array( $page, $admin_pages, true );
+		}
+
+		// Return filtered admin page.
+		return (bool) apply_filters( 'intercessor_is_admin_page', $ret );
+	}
+
+	/**
+	 * Get the current Intercessor admin screen slug.
+	 *
+	 * @since 1.1.1
+	 *
+	 * @return bool|string The ?page= slug, or false when not on an Intercessor page.
+	 */
+	public function get_admin_current_screen() {
+		// Bail if the wp_loaded hook has not been called or it is not an admin.
+		if ( ! is_admin() ) {
+			return false;
+		}
+
+		$screen = get_current_screen();
+
+		if ( ! $screen ) {
+			return false;
+		}
+
+		$admin_pages = array(
+			'intercessor-requests',
+			'intercessor-private-requests',
+			'intercessor-requesters',
+			'intercessor-tools',
+			'intercessor-settings',
+			'intercessor-upgrades',
+			'intercessor-reports',
+		);
+
+		foreach ( $admin_pages as $page ) {
+			if ( 'toplevel_page_' . $page === $screen->id ) {
+				return $page;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Register a "per page" Screen Option for the current screen.
+	 *
+	 * @since  1.1.1
+	 * @param  string $option  User-meta option name that stores the value.
+	 * @param  string $label   Label shown in the Screen Options panel.
+	 * @param  int    $default Default number of items per page.
+	 * @return void
+	 */
+	private function add_per_page_screen_option( string $option, string $label, int $default = 20 ): void {
+		add_screen_option(
+			'per_page',
+			array(
+				'label'   => $label,
+				'default' => $default,
+				'option'  => $option,
+			)
+		);
+	}
+
+	/**
+	 * Add screen options for the prayer requests (moderation) list table.
+	 *
+	 * Hooked to load-{hook} for the Prayer Requests page. Registers the
+	 * "per page" option and instantiates the list table early so its columns
+	 * are registered with WordPress and appear in the Screen Options
+	 * "Columns" checklist. Skipped on the single-request detail view, which
+	 * has no list table.
+	 *
+	 * @since 1.1.1
+	 *
+	 * @return void
+	 */
+	public function add_prayers_screen_options(): void {
+		if ( Request::capture()->get_int( 'view' ) > 0 ) {
+			return;
+		}
+
+		$this->add_per_page_screen_option(
+			Prayer_Request_List_Table::PER_PAGE_OPTION,
+			esc_html__( 'Number of prayer requests per page', 'intercessor' )
+		);
+
+		new Prayer_Request_List_Table();
+
+		/**
+		 * Fires in the Intercessor screen options area.
+		 *
+		 * @param string $screen The current screen slug.
+		 */
+		do_action( 'intercessor_admin_screen_options', 'intercessor-requests' );
+	}
+
+	/**
+	 * Add screen options for the prayer warrior's prayer requests list.
+	 *
+	 * Same per-page option as the moderation list, but the list table is
+	 * instantiated in warrior mode so the Columns checklist matches the
+	 * restricted column set.
+	 *
+	 * @since 1.1.1
+	 *
+	 * @return void
+	 */
+	public function add_warrior_prayers_screen_options(): void {
+		$this->add_per_page_screen_option(
+			Prayer_Request_List_Table::PER_PAGE_OPTION,
+			esc_html__( 'Number of prayer requests per page', 'intercessor' )
+		);
+
+		new Prayer_Request_List_Table( Prayer_Request_List_Table::MODE_WARRIOR );
+
+		do_action( 'intercessor_admin_screen_options', 'intercessor-private-requests' );
+	}
+
+	/**
+	 * Add screen options for the requesters list table.
+	 *
+	 * Skipped on the single-requester detail view (?requester_id=).
+	 *
+	 * @since 1.1.1
+	 *
+	 * @return void
+	 */
+	public function add_requesters_screen_options(): void {
+		if ( Request::capture()->get_int( 'requester_id' ) > 0 ) {
+			return;
+		}
+
+		$this->add_per_page_screen_option(
+			Requester_List_Table::PER_PAGE_OPTION,
+			esc_html__( 'Number of requesters per page', 'intercessor' )
+		);
+
+		new Requester_List_Table();
+
+		do_action( 'intercessor_admin_screen_options', 'intercessor-requesters' );
+	}
+
+	/**
+	 * Save the per-page screen options for the Intercessor list tables.
+	 *
+	 * @since 1.1.1
+	 *
+	 * @param mixed  $status The current status of the screen option.
+	 * @param string $option The name of the screen option.
+	 * @param mixed  $value  The submitted value.
+	 *
+	 * @return mixed The sanitised value for Intercessor options, otherwise $status.
+	 */
+	public function set_screen_option( $status, $option, $value ) {
+		$own_options = array(
+			Prayer_Request_List_Table::PER_PAGE_OPTION,
+			Requester_List_Table::PER_PAGE_OPTION,
+		);
+
+		if ( in_array( $option, $own_options, true ) ) {
+			return max( 1, min( 200, (int) $value ) );
+		}
+
+		return $status;
+	}
+
+	/**
+	 * Set the shared "For more information" help sidebar on a screen.
+	 *
+	 * @since  1.1.1
+	 * @param  \WP_Screen $screen Current admin screen.
+	 * @return void
+	 */
+	private function set_help_sidebar( \WP_Screen $screen ): void {
+		$screen->set_help_sidebar(
+			'<p><strong>' . esc_html__( 'For more information:', 'intercessor' ) . '</strong></p>' .
+			'<p>' . sprintf(
+				/* translators: %s: URL of the Intercessor documentation */
+				__( 'Visit the <a href="%s">documentation</a> on the Intercessor website.', 'intercessor' ),
+				esc_url( 'https://www.intercessorwp.com/' )
+			) . '</p>' .
+			'<p>' . sprintf(
+				/* translators: 1: URL of the GitHub issues page, 2: URL of the GitHub repository */
+				__( '<a href="%1$s">Post an issue</a> on <a href="%2$s">GitHub</a>.', 'intercessor' ),
+				esc_url( 'https://github.com/victoraigbeghian/intercessor/issues' ),
+				esc_url( 'https://github.com/victoraigbeghian/intercessor' )
+			) . '</p>'
+		);
+	}
+
+	/**
+	 * Render contextual help for the Prayer Requests (moderation) page.
+	 *
+	 * Hooked to load-{hook} for the intercessor-requests page. The help
+	 * tabs must be added during that action — before the admin header is
+	 * printed — or WordPress never shows the Help tab. Skipped on the
+	 * single-request detail view, which has its own layout.
+	 *
+	 * @since 1.1.1
+	 *
+	 * @return void
+	 */
+	public function render_contextual_help(): void {
+		$screen = get_current_screen();
+
+		if ( ! $screen instanceof \WP_Screen ) {
+			return;
+		}
+
+		$this->set_help_sidebar( $screen );
+
+		$screen->add_help_tab(
+			array(
+				'id'      => 'intercessor-prayer-general',
+				'title'   => esc_html__( 'General', 'intercessor' ),
+				'content' =>
+					'<p>' . esc_html__( 'Prayer requests can have pending, approved, rejected, archived or private status.', 'intercessor' ) . '</p>' .
+					'<p>' . esc_html__( 'Private requests never appear on the public Prayer Wall. They can be viewed by prayer managers and, without requester contact details, by prayer warriors.', 'intercessor' ) . '</p>',
+			)
+		);
+
+		$screen->add_help_tab(
+			array(
+				'id'      => 'intercessor-prayer-add',
+				'title'   => esc_html__( 'Adding Prayers', 'intercessor' ),
+				'content' =>
+					'<p>' . esc_html__( 'You can create any number of prayer requests from this page using the Add Prayer Request button.', 'intercessor' ) . '</p>' .
+					'<p>' . esc_html__( 'Prayer requests have several options:', 'intercessor' ) . '</p>' .
+					'<ul>' .
+						'<li><strong>' . esc_html__( 'First Name - ', 'intercessor' ) . '</strong>' . esc_html__( 'the first name of the person the request is for.', 'intercessor' ) . '</li>' .
+						'<li><strong>' . esc_html__( 'Last Name - ', 'intercessor' ) . '</strong>' . esc_html__( 'the last name of the person the request is for.', 'intercessor' ) . '</li>' .
+						'<li><strong>' . esc_html__( 'Email - ', 'intercessor' ) . '</strong>' . esc_html__( 'the email address of the person the request is for.', 'intercessor' ) . '</li>' .
+						'<li><strong>' . esc_html__( 'Subject - ', 'intercessor' ) . '</strong>' . esc_html__( 'the prayer request title.', 'intercessor' ) . '</li>' .
+						'<li><strong>' . esc_html__( 'Prayer Request - ', 'intercessor' ) . '</strong>' . esc_html__( 'the prayer request body or message.', 'intercessor' ) . '</li>' .
+						'<li><strong>' . esc_html__( 'Status - ', 'intercessor' ) . '</strong>' . esc_html__( 'the moderation status of the request.', 'intercessor' ) . '</li>' .
+						'<li><strong>' . esc_html__( 'Anonymous - ', 'intercessor' ) . '</strong>' . esc_html__( 'hides the requester name on the Prayer Wall.', 'intercessor' ) . '</li>' .
+					'</ul>',
+			)
+		);
+
+		$screen->add_help_tab(
+			array(
+				'id'      => 'intercessor-prayer-screen-options',
+				'title'   => esc_html__( 'Screen Options', 'intercessor' ),
+				'content' =>
+					'<p>' . esc_html__( 'Use the Screen Options tab at the top of the page to choose how many prayer requests are shown per page and which columns are visible.', 'intercessor' ) . '</p>',
+			)
+		);
+
+		do_action( 'intercessor_prayers_contextual_help', $screen );
+	}
+
+	/**
+	 * Render contextual help for the prayer warrior's Prayer Requests page.
+	 *
+	 * Hooked to load-{hook} for the intercessor-private-requests page.
+	 * Describes only what a warrior can see and do; no moderation content.
+	 *
+	 * @since 1.1.1
+	 *
+	 * @return void
+	 */
+	public function render_warrior_contextual_help(): void {
+		$screen = get_current_screen();
+
+		if ( ! $screen instanceof \WP_Screen ) {
+			return;
+		}
+
+		$this->set_help_sidebar( $screen );
+
+		$screen->add_help_tab(
+			array(
+				'id'      => 'intercessor-warrior-general',
+				'title'   => esc_html__( 'General', 'intercessor' ),
+				'content' =>
+					'<p>' . esc_html__( 'This page lists approved and private prayer requests so you can pray for them.', 'intercessor' ) . '</p>' .
+					'<p>' . esc_html__( 'Requester email addresses and the names of anonymous requesters are hidden. Long messages are collapsed; use Read full request to see the whole message.', 'intercessor' ) . '</p>',
+			)
+		);
+
+		$screen->add_help_tab(
+			array(
+				'id'      => 'intercessor-warrior-praying',
+				'title'   => esc_html__( 'Praying', 'intercessor' ),
+				'content' =>
+					'<p>' . esc_html__( 'Click "I prayed for this" on a request after you have prayed. The count beside the button shows how many times the request has been prayed for.', 'intercessor' ) . '</p>',
+			)
+		);
+
+		$screen->add_help_tab(
+			array(
+				'id'      => 'intercessor-warrior-screen-options',
+				'title'   => esc_html__( 'Screen Options', 'intercessor' ),
+				'content' =>
+					'<p>' . esc_html__( 'Use the Screen Options tab at the top of the page to choose how many prayer requests are shown per page and which columns are visible.', 'intercessor' ) . '</p>',
+			)
+		);
+
+		do_action( 'intercessor_prayers_contextual_help', $screen );
 	}
 }

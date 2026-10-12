@@ -18,6 +18,20 @@ Fires after the notification cron job completes. Receives the number of notifica
 do_action( 'intercessor_after_pray_notification_run', int $updated );
 ```
 
+### intercessor_admin_screen_options
+Fires when the Screen Options are registered on an Intercessor list table page. Receives the page slug (`intercessor-requests`, `intercessor-private-requests`, or `intercessor-requesters`).
+
+```php
+do_action( 'intercessor_admin_screen_options', string $screen );
+```
+
+### intercessor_prayers_contextual_help
+Fires after the Help tabs are added to the Prayer Requests page (both the moderation and prayer warrior versions). Receives the `WP_Screen` object, so you can add your own tabs.
+
+```php
+do_action( 'intercessor_prayers_contextual_help', WP_Screen $screen );
+```
+
 ### intercessor_email_confirmed
 Fires when a user confirms their email address via the confirmation link. Receives the WordPress user ID.
 
@@ -58,6 +72,13 @@ add_filter( 'intercessor_report_views', function( $views ) {
     $views['my_custom_report'] = My_Custom_Report_View::class;
     return $views;
 } );
+```
+
+### intercessor_is_admin_page
+Filter whether the current request is an Intercessor admin page.
+
+```php
+$is_admin_page = apply_filters( 'intercessor_is_admin_page', bool $is_admin_page );
 ```
 
 ### intercessor_requester_tabs

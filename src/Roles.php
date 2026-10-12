@@ -23,8 +23,10 @@ defined( 'ABSPATH' ) || exit;
  *                 all five custom prayer caps. Intended for staff who manage
  *                 the prayer ministry but should not have full WP admin access.
  *
- * prayer_warrior  Read-only WP access. Can view reports, export data, and see
- *                 private prayers. Intended for trusted volunteers.
+ * prayer_warrior  Minimal WP access. Can see prayer requests marked private,
+ *                 but cannot view reports, export data, or moderate prayer
+ *                 requests in any way. Intended for trusted volunteers whose
+ *                 role is limited to praying, not managing or reviewing data.
  *
  * requester       Minimal WP access (read only). Assigned automatically when a
  *                 guest prayer submitter is registered as a WP user. No prayer
@@ -32,22 +34,22 @@ defined( 'ABSPATH' ) || exit;
  *
  * Custom capabilities
  * ───────────────────
- * edit_prayers             Create, edit, moderate, and delete prayer requests
- *                          and requesters. The core operational capability.
+ * edit_prayers                Create, edit, moderate, and delete prayer requests
+ *                             and requesters. The core operational capability.
  *
- * manage_prayer_settings   Access and save the Settings page, Tools page, and
- *                          import/upgrade actions.
+ * manage_prayer_settings      Access and save the Settings page, Tools page, and
+ *                             import/upgrade actions.
  *
- * view_prayer_reports      View the Requesters list, Reports, and dashboard
- *                          stats widgets.
+ * view_prayer_reports         View the Requesters list, Reports, and dashboard
+ *                             stats widgets.
  *
- * export_prayer_reports    Export data to CSV from the Tools page.
+ * export_prayer_reports       Export data to CSV from the Tools page.
  *
  * view_prayer_sensitive_data  Reserved for future use: see private/sensitive
- *                          requester data. Currently defined but not checked.
+ *                             requester data. Currently defined but not checked.
  *
- * read_private_prayers     Reserved for future use: see prayer requests with
- *                          'private' status. Currently defined but not checked.
+ * read_private_prayers        Reserved for future use: see prayer requests with
+ *                             'private' status. Currently defined but not checked.
  *
  * @since   1.0.0
  * @package Intercessor
@@ -188,16 +190,22 @@ final class Roles {
 	 *
 	 *   Capability                 administrator  prayer_manager  prayer_warrior
 	 *   ─────────────────────────────────────────────────────────────────────────
-	 *   edit_prayers               ✓              ✓               ✓
+	 *   edit_prayers               ✓              ✓               —
 	 *   manage_prayer_settings     ✓              ✓               —
-	 *   view_prayer_reports        ✓              ✓               ✓
-	 *   export_prayer_reports      ✓              ✓               ✓
+	 *   view_prayer_reports        ✓              ✓               —
+	 *   export_prayer_reports      ✓              ✓               —
 	 *   view_prayer_sensitive_data ✓              ✓               —
-	 *   read_private_prayers       —              —               ✓
+	 *   read_private_prayers       —              —                ✓
 	 *
 	 * Called during plugin activation.
 	 *
 	 * @since  1.0.0
+	 * @since  1.1.1 prayer_warrior no longer receives edit_prayers. It was
+	 *               granted the single capability that gates every
+	 *               moderation action (can_moderate() checks edit_prayers),
+	 *               which contradicted this role's own "read-only" /
+	 *               "trusted volunteer" description above and gave it the
+	 *               same operational power as prayer_manager.
 	 * @return void
 	 */
 	public static function add_caps(): void {
@@ -222,13 +230,8 @@ final class Roles {
 		$wp_roles->add_cap( self::ROLE_PRAYER_MANAGER, self::CAP_VIEW_SENSITIVE );
 
 		// ── prayer_warrior ────────────────────────────────────────────────────
-		$wp_roles->add_cap( self::ROLE_PRAYER_WARRIOR, self::CAP_EDIT_PRAYERS );
-		$wp_roles->add_cap( self::ROLE_PRAYER_WARRIOR, self::CAP_VIEW_REPORTS );
-		$wp_roles->add_cap( self::ROLE_PRAYER_WARRIOR, self::CAP_EXPORT_REPORTS );
 		$wp_roles->add_cap( self::ROLE_PRAYER_WARRIOR, self::CAP_READ_PRIVATE_PRAYERS );
 	}
-
-	// ── Capability removal ────────────────────────────────────────────────────
 
 	/**
 	 * Remove all custom prayer capabilities from all roles.

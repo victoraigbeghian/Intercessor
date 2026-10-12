@@ -34,6 +34,55 @@ if ( ! class_exists( 'WP_List_Table' ) ) {
 final class Prayer_Request_List_Table extends WP_List_Table {
 
 	/**
+	 * Full moderation view (prayer managers / administrators).
+	 *
+	 * @since 1.1.3
+	 * @var   string
+	 */
+	public const MODE_ADMIN = 'admin';
+
+	/**
+	 * Restricted, read-only view for prayer warriors.
+	 *
+	 * Lists only approved and private requests, hides requester contact
+	 * details and every moderation control, and offers only the
+	 * "I prayed for this" action.
+	 *
+	 * @since 1.1.3
+	 * @var   string
+	 */
+	public const MODE_WARRIOR = 'warrior';
+
+	/**
+	 * User-meta key backing the "Number of prayer requests per page"
+	 * Screen Option.
+	 *
+	 * @since 1.1.3
+	 * @var   string
+	 */
+	public const PER_PAGE_OPTION = 'intercessor_prayers_per_page';
+
+	/**
+	 * The only statuses a prayer warrior may ever see.
+	 *
+	 * Enforced in prepare_items() and get_views() — never derived from
+	 * request input — so a tampered status_filter cannot widen the list.
+	 *
+	 * @since 1.1.3
+	 * @var   string[]
+	 */
+	public const WARRIOR_STATUSES = array( 'approved', 'private' );
+
+	/**
+	 * Messages longer than this many words are collapsed behind a
+	 * "Read full request" dropdown in the warrior view.
+	 *
+	 * @since 1.1.3
+	 * @var   int
+	 */
+	public const COLLAPSE_WORDS = 100;
+
+	/**
 	 * Query instance used to fetch and count prayer request rows.
 	 *
 	 * @since 1.0.0
@@ -42,18 +91,74 @@ final class Prayer_Request_List_Table extends WP_List_Table {
 	private Prayer_Request_Query $query;
 
 	/**
+	 * Display mode: MODE_ADMIN or MODE_WARRIOR.
+	 *
+	 * @since 1.1.3
+	 * @var   string
+	 */
+	private string $mode;
+
+	/**
 	 * Initialise the list table and instantiate the query class.
 	 *
 	 * @since 1.0.0
+	 * @since 1.1.3 Accepts a display mode.
+	 * @param string $mode One of self::MODE_ADMIN or self::MODE_WARRIOR.
 	 */
-	public function __construct() {
+	public function __construct( string $mode = self::MODE_ADMIN ) {
 		parent::__construct( array(
 			'singular' => 'prayer_request',
 			'plural'   => 'prayer_requests',
 			'ajax'     => false,
 		) );
 
+		$this->mode  = self::MODE_WARRIOR === $mode ? self::MODE_WARRIOR : self::MODE_ADMIN;
 		$this->query = new Prayer_Request_Query();
+	}
+
+	/**
+	 * Whether this table is rendering the restricted prayer warrior view.
+	 *
+	 * @since  1.1.3
+	 * @return bool
+	 */
+	private function is_warrior_mode(): bool {
+		return self::MODE_WARRIOR === $this->mode;
+	}
+
+	/**
+	 * Base URL of the page this table is displayed on.
+	 *
+	 * @since  1.1.3
+	 * @return string
+	 */
+	private function get_base_url(): string {
+		return admin_url(
+			$this->is_warrior_mode()
+				? 'admin.php?page=intercessor-private-requests'
+				: 'admin.php?page=intercessor-requests'
+		);
+	}
+
+	/**
+	 * Resolve the status constraint for queries and counts.
+	 *
+	 * Admin mode: the requested status_filter, or no constraint.
+	 * Warrior mode: always limited to WARRIOR_STATUSES; a status_filter is
+	 * honoured only when it is itself one of those statuses.
+	 *
+	 * @since  1.1.3
+	 * @param  string $statusFilter Sanitised status_filter request value.
+	 * @return string|string[]|null Status value(s) to filter by, or null for none.
+	 */
+	private function resolve_status_constraint( string $statusFilter ) {
+		if ( ! $this->is_warrior_mode() ) {
+			return '' !== $statusFilter ? $statusFilter : null;
+		}
+
+		return in_array( $statusFilter, self::WARRIOR_STATUSES, true )
+			? $statusFilter
+			: self::WARRIOR_STATUSES;
 	}
 
 	/**
@@ -73,6 +178,16 @@ final class Prayer_Request_List_Table extends WP_List_Table {
 	 * @return array<string, string>
 	 */
 	public function get_columns(): array {
+		if ( $this->is_warrior_mode() ) {
+			return array(
+				'subject'      => __( 'Prayer Request', 'intercessor' ),
+				'status'       => __( 'Status', 'intercessor' ),
+				'requester_id' => __( 'Requester', 'intercessor' ),
+				'date_created' => __( 'Submitted', 'intercessor' ),
+				'actions'      => __( 'Pray', 'intercessor' ),
+			);
+		}
+
 		return array(
 			'cb'           => '<input type="checkbox" />',
 			'subject'      => __( 'Subject', 'intercessor' ),
@@ -104,6 +219,11 @@ final class Prayer_Request_List_Table extends WP_List_Table {
 	 * @return array<string, string>
 	 */
 	protected function get_bulk_actions(): array {
+		// Prayer warriors have no moderation powers.
+		if ( $this->is_warrior_mode() ) {
+			return array();
+		}
+
 		return array(
 			'bulk_approve'      => __( 'Approve',       'intercessor' ),
 			'bulk_reject'       => __( 'Reject',        'intercessor' ),
@@ -122,11 +242,13 @@ final class Prayer_Request_List_Table extends WP_List_Table {
 	 * @return void
 	 */
 	public function prepare_items(): void {
-		$perPage     = 20;
+		// Honours the "Number of prayer requests per page" Screen Option.
+		$perPage     = max( 1, (int) $this->get_items_per_page( self::PER_PAGE_OPTION, 20 ) );
 		$currentPage = $this->get_pagenum();
 
 		$req          = Request::capture();
 		$statusFilter = $req->get_key( 'status_filter' );
+		$constraint   = $this->resolve_status_constraint( $statusFilter );
 
 		$args = array(
 			'number'  => $perPage,
@@ -135,22 +257,26 @@ final class Prayer_Request_List_Table extends WP_List_Table {
 			'order'   => strtoupper( $req->get_key( 'order' ) ) === 'ASC' ? 'ASC' : 'DESC',
 		);
 
-		if ( $statusFilter !== '' ) {
-			$args['status'] = $statusFilter;
+		$countArgs = array();
+
+		if ( null !== $constraint ) {
+			$args['status']      = $constraint;
+			$countArgs['status'] = $constraint;
 		}
 
 		$this->items = $this->query->get_items( $args );
-
-		$countArgs = $statusFilter !== '' ? array( 'status' => $statusFilter ) : array();
-		$total     = $this->query->count_items( $countArgs );
+		$total       = $this->query->count_items( $countArgs );
 
 		$this->set_pagination_args( array(
 			'total_items' => $total,
 			'per_page'    => $perPage,
-			'total_pages' => ceil( $total / $perPage ),
+			'total_pages' => (int) ceil( $total / $perPage ),
 		) );
 
-		$this->_column_headers = array( $this->get_columns(), array(), $this->get_sortable_columns() );
+		// Hidden columns come from the Screen Options "Columns" checklist.
+		$hidden = $this->screen ? get_hidden_columns( $this->screen ) : array();
+
+		$this->_column_headers = array( $this->get_columns(), $hidden, $this->get_sortable_columns() );
 	}
 
 	/**
@@ -165,22 +291,40 @@ final class Prayer_Request_List_Table extends WP_List_Table {
 	protected function get_views(): array {
 		$current = Request::capture()->get_key( 'status_filter' );
 
-		$statuses = array(
-			''         => __( 'All',      'intercessor' ),
-			'pending'  => __( 'Pending',  'intercessor' ),
-			'approved' => __( 'Approved', 'intercessor' ),
-			'rejected' => __( 'Rejected', 'intercessor' ),
-			'archived' => __( 'Archived', 'intercessor' ),
-			'private'  => __( 'Private',  'intercessor' ),
-		);
+		if ( $this->is_warrior_mode() ) {
+			$statuses = array(
+				''         => __( 'All',      'intercessor' ),
+				'approved' => __( 'Approved', 'intercessor' ),
+				'private'  => __( 'Private',  'intercessor' ),
+			);
+		} else {
+			$statuses = array(
+				''         => __( 'All',      'intercessor' ),
+				'pending'  => __( 'Pending',  'intercessor' ),
+				'approved' => __( 'Approved', 'intercessor' ),
+				'rejected' => __( 'Rejected', 'intercessor' ),
+				'archived' => __( 'Archived', 'intercessor' ),
+				'private'  => __( 'Private',  'intercessor' ),
+			);
+		}
+
+		// A warrior's "current" tab is only meaningful for visible statuses.
+		if ( $this->is_warrior_mode() && ! in_array( $current, self::WARRIOR_STATUSES, true ) ) {
+			$current = '';
+		}
 
 		$views    = array();
-		$base     = admin_url( 'admin.php?page=intercessor-requests' );
+		$base     = $this->get_base_url();
 
 		foreach ( $statuses as $slug => $label ) {
-			$count    = $slug === ''
-				? $this->query->count_items( array() )
-				: $this->query->count_items( array( 'status' => $slug ) );
+			if ( $slug === '' ) {
+				$allConstraint = $this->resolve_status_constraint( '' );
+				$count         = $this->query->count_items(
+					null === $allConstraint ? array() : array( 'status' => $allConstraint )
+				);
+			} else {
+				$count = $this->query->count_items( array( 'status' => $slug ) );
+			}
 
 			$url      = $slug === '' ? $base : add_query_arg( 'status_filter', $slug, $base );
 			$active   = $current === $slug ? ' class="current"' : '';
@@ -233,13 +377,21 @@ final class Prayer_Request_List_Table extends WP_List_Table {
 	 *
 	 * When the profanity filter has flagged the request the subject cell
 	 * shows a small warning icon so moderators can spot flagged items
-	 * without opening each one.
+	 * without opening each one. A short excerpt of the request body is
+	 * shown beneath the subject for the same reason — so a moderator can
+	 * triage most requests from this list without clicking View on each
+	 * one individually.
 	 *
 	 * @since  1.0.0
+	 * @since  1.1.1 Added a truncated content excerpt beneath the subject.
 	 * @param  object $item
 	 * @return string
 	 */
 	protected function column_subject( $item ): string {
+		if ( $this->is_warrior_mode() ) {
+			return $this->render_warrior_subject( $item );
+		}
+
 		$subject = esc_html( $item->subject ?: __( '(no subject)', 'intercessor' ) );
 		$editUrl = add_query_arg(
 			array( 'page' => 'intercessor-requests', 'view' => absint( $item->id ) ),
@@ -255,13 +407,97 @@ final class Prayer_Request_List_Table extends WP_List_Table {
 				'" aria-hidden="true"></span>';
 		}
 
-		return sprintf(
+		$title = sprintf(
 			/* translators: %s: subject of the prayer request */
 			'<strong><a href="%s">%s</a>%s</strong>',
 			esc_url( $editUrl ),
 			$subject,
 			$flag
 		);
+
+		return $title . $this->render_content_excerpt( (string) ( $item->content ?? '' ) );
+	}
+
+	/**
+	 * Render the subject and full message for the prayer warrior view.
+	 *
+	 * The subject is plain text (no link — the detail view is not available
+	 * to warriors). The full message is shown inline when it is short, or
+	 * collapsed behind a native <details> dropdown when it exceeds
+	 * COLLAPSE_WORDS words, so no JavaScript is needed to read it.
+	 *
+	 * @since  1.1.3
+	 * @param  object $item Prayer request row.
+	 * @return string       HTML cell content.
+	 */
+	private function render_warrior_subject( $item ): string {
+		$subject = esc_html( $item->subject ?: __( '(no subject)', 'intercessor' ) );
+		$content = trim( (string) ( $item->content ?? '' ) );
+
+		$html = '<strong class="intercessor-warrior-subject">' . $subject . '</strong>';
+
+		if ( $content === '' ) {
+			return $html;
+		}
+
+		$full = '<div class="intercessor-warrior-message">'
+			. wp_kses_post( wpautop( esc_html( $content ) ) )
+			. '</div>';
+
+		if ( $this->count_words( $content ) <= self::COLLAPSE_WORDS ) {
+			return $html . $full;
+		}
+
+		$preview = esc_html( wp_trim_words( $content, 25, '…' ) );
+
+		return $html
+			. '<details class="intercessor-row-details">'
+			. '<summary class="intercessor-row-details__summary">'
+			. '<span class="intercessor-row-details__preview">' . $preview . '</span> '
+			. '<span class="button button-small intercessor-row-details__toggle">'
+			. '<span class="intercessor-row-details__more">' . esc_html__( 'Read full request', 'intercessor' ) . '</span>'
+			. '<span class="intercessor-row-details__less">' . esc_html__( 'Show less', 'intercessor' ) . '</span>'
+			. '</span>'
+			. '</summary>'
+			. $full
+			. '</details>';
+	}
+
+	/**
+	 * Count the words in a plain-text string.
+	 *
+	 * @since  1.1.3
+	 * @param  string $text Plain text.
+	 * @return int          Number of whitespace-separated words.
+	 */
+	private function count_words( string $text ): int {
+		$words = preg_split( '/\s+/u', trim( $text ), -1, PREG_SPLIT_NO_EMPTY );
+
+		return is_array( $words ) ? count( $words ) : 0;
+	}
+
+	/**
+	 * Render a short, word-boundary-truncated preview of the request body.
+	 *
+	 * $item->content is plain text — sanitized on submission, never raw
+	 * HTML — so no markup stripping is needed before trimming, only
+	 * escaping on output. wp_trim_words() (rather than a raw substr()) is
+	 * used so the cut never lands mid-word.
+	 *
+	 * @since  1.1.1
+	 * @param  string $content Full prayer request body text.
+	 * @return string          HTML snippet, or '' when there's no content.
+	 */
+	private function render_content_excerpt( string $content ): string {
+		$content = trim( $content );
+
+		if ( $content === '' ) {
+			return '';
+		}
+
+		$excerpt = wp_trim_words( $content, 18, '…' );
+
+		return '<p class="intercessor-row-excerpt">' . esc_html( $excerpt ) . '</p>';
 	}
 
 	/**
@@ -276,6 +512,10 @@ final class Prayer_Request_List_Table extends WP_List_Table {
 	 * @return string       HTML cell content.
 	 */
 	protected function column_requester_id( $item ): string {
+		if ( $this->is_warrior_mode() ) {
+			return $this->render_warrior_requester( $item );
+		}
+
 		$requester_id = (int) $item->requester_id;
 
 		if ( $requester_id <= 0 ) {
@@ -304,6 +544,33 @@ final class Prayer_Request_List_Table extends WP_List_Table {
 		return '<a href="' . esc_url( $detail_url ) . '">'
 			. esc_html( $requester->get_display_name() )
 			. '</a>';
+	}
+
+	/**
+	 * Render the Requester column for prayer warriors.
+	 *
+	 * Shows the requester's name only for non-anonymous requests, as plain
+	 * text. Anonymous requests show "[Anonymous]" and never trigger a
+	 * requester lookup, so neither the name nor the email ever reaches the
+	 * page. There is no link to the requester detail screen.
+	 *
+	 * @since  1.1.3
+	 * @param  object $item Prayer request row.
+	 * @return string       HTML cell content.
+	 */
+	private function render_warrior_requester( $item ): string {
+		if ( $item->is_anonymous() ) {
+			return '<em>' . esc_html__( '[Anonymous]', 'intercessor' ) . '</em>';
+		}
+
+		$requester_id = (int) $item->requester_id;
+		$requester    = $requester_id > 0 ? ( new Requester_Query() )->get_item( $requester_id ) : null;
+
+		if ( ! $requester ) {
+			return '<span style="color:#a0a0a0;">' . esc_html__( '(none)', 'intercessor' ) . '</span>';
+		}
+
+		return esc_html( $requester->get_display_name() );
 	}
 
 	/**
@@ -339,48 +606,35 @@ final class Prayer_Request_List_Table extends WP_List_Table {
 	}
 
 	/**
-	 * Render inline Approve, Reject, and View action buttons.
+	 * Render inline status-transition, View, and pray-count action buttons.
 	 *
 	 * @since  1.0.0
+	 * @since  1.1.1 Buttons are now contextual to the row's current status
+	 *               instead of always showing Approve + Reject. Previously
+	 *               an already-Rejected row still offered "Approve" and a
+	 *               Private row offered both "Approve" and "Reject" —
+	 *               confusing, and in the same-status case a button with no
+	 *               real effect. See get_status_transition_buttons().
 	 * @param  object $item
 	 * @return string
 	 */
 	protected function column_actions( $item ): string {
+		// Prayer warriors get the pray button only — no moderation forms,
+		// no link to the detail view.
+		if ( $this->is_warrior_mode() ) {
+			return $this->render_admin_pray_button( absint( $item->id ) );
+		}
+
 		$nonce   = wp_create_nonce( 'intercessor_moderate' );
 		$id      = absint( $item->id );
 		$postUrl = esc_url( admin_url( 'admin-post.php' ) );
 
-		$approve = sprintf(
-			/* translators: %d: total number of prayer requests */
-			'<form method="post" action="%s" style="display:inline">
-				<input type="hidden" name="action"     value="intercessor_moderate">
-				<input type="hidden" name="request_id" value="%d">
-				<input type="hidden" name="new_status" value="approved">
-				<input type="hidden" name="_wpnonce"   value="%s">
-				<button type="submit" class="button button-small button-primary">%s</button>
-			</form>',
-			$postUrl, $id, esc_attr( $nonce ),
-			esc_html__( 'Approve', 'intercessor' )
-		);
-
-		$reject = sprintf(
-			/* translators: %d: total number of prayer requests */
-			'<form method="post" action="%s" style="display:inline">
-				<input type="hidden" name="action"     value="intercessor_moderate">
-				<input type="hidden" name="request_id" value="%d">
-				<input type="hidden" name="new_status" value="rejected">
-				<input type="hidden" name="_wpnonce"   value="%s">
-				<button type="submit" class="button button-small">%s</button>
-			</form>',
-			$postUrl, $id, esc_attr( $nonce ),
-			esc_html__( 'Reject', 'intercessor' )
-		);
+		$transitionButtons = $this->get_status_transition_buttons( (string) $item->status, $id, $nonce, $postUrl );
 
 		$viewUrl = esc_url( add_query_arg(
 			array( 'page' => 'intercessor-requests', 'view' => $id ),
 			admin_url( 'admin.php' )
 		) );
-		/* translators: %d: number of pending prayer requests */
 		$view = sprintf(
 			'<a href="%s" class="button button-small">%s</a>',
 			$viewUrl,
@@ -389,7 +643,86 @@ final class Prayer_Request_List_Table extends WP_List_Table {
 
 		$pray = $this->render_admin_pray_button( $id );
 
-		return $approve . ' ' . $reject . ' ' . $view . ' ' . $pray;
+		return '<span class="intercessor-moderate-actions">'
+			. implode( ' ', $transitionButtons ) . ' ' . $view
+			. '</span> ' . $pray;
+	}
+
+	/**
+	 * Return the status-transition buttons appropriate for the row's
+	 * current status, rather than always offering Approve + Reject.
+	 *
+	 *   pending / private → Approve, Reject   (the two open decisions)
+	 *   approved          → Reject, Archive   (undo, or retire)
+	 *   rejected          → Approve, Archive  (reconsider, or retire)
+	 *   archived          → Restore to Pending (bring back into the queue)
+	 *
+	 * @since  1.1.1
+	 * @param  string $status  Current item status.
+	 * @param  int    $id      Prayer request ID.
+	 * @param  string $nonce   Shared moderation nonce for this request.
+	 * @param  string $postUrl admin-post.php URL.
+	 * @return string[]        HTML form markup, in display order.
+	 */
+	private function get_status_transition_buttons( string $status, int $id, string $nonce, string $postUrl ): array {
+		switch ( $status ) {
+			case 'approved':
+				return array(
+					$this->render_moderation_button( $id, 'rejected', __( 'Reject', 'intercessor' ), 'button-small', $nonce, $postUrl ),
+					$this->render_moderation_button( $id, 'archived', __( 'Archive', 'intercessor' ), 'button-small', $nonce, $postUrl ),
+				);
+
+			case 'rejected':
+				return array(
+					$this->render_moderation_button( $id, 'approved', __( 'Approve', 'intercessor' ), 'button-small button-primary', $nonce, $postUrl ),
+					$this->render_moderation_button( $id, 'archived', __( 'Archive', 'intercessor' ), 'button-small', $nonce, $postUrl ),
+				);
+
+			case 'archived':
+				return array(
+					$this->render_moderation_button( $id, 'pending', __( 'Restore to Pending', 'intercessor' ), 'button-small', $nonce, $postUrl ),
+				);
+
+			case 'pending':
+			case 'private':
+			default:
+				return array(
+					$this->render_moderation_button( $id, 'approved', __( 'Approve', 'intercessor' ), 'button-small button-primary', $nonce, $postUrl ),
+					$this->render_moderation_button( $id, 'rejected', __( 'Reject', 'intercessor' ), 'button-small', $nonce, $postUrl ),
+				);
+		}
+	}
+
+	/**
+	 * Render a single status-transition form/button.
+	 *
+	 * Factored out of the old column_actions() body so
+	 * get_status_transition_buttons() can request exactly the transitions
+	 * relevant to a row's current status without duplicating this markup
+	 * per status branch.
+	 *
+	 * @since  1.1.1
+	 * @param  int    $id        Prayer request ID.
+	 * @param  string $newStatus Target status value — one of
+	 *                           Admin\Moderation_Handler::VALID_STATUSES.
+	 * @param  string $label     Button label.
+	 * @param  string $cssClass  Additional button CSS class(es).
+	 * @param  string $nonce     Shared moderation nonce for this request.
+	 * @param  string $postUrl   admin-post.php URL.
+	 * @return string            HTML form markup.
+	 */
+	private function render_moderation_button( int $id, string $newStatus, string $label, string $cssClass, string $nonce, string $postUrl ): string {
+		return sprintf(
+			'<form method="post" action="%s" style="display:inline">
+				<input type="hidden" name="action"     value="intercessor_moderate">
+				<input type="hidden" name="request_id" value="%d">
+				<input type="hidden" name="new_status" value="%s">
+				<input type="hidden" name="_wpnonce"   value="%s">
+				<button type="submit" class="button %s">%s</button>
+			</form>',
+			$postUrl, $id, esc_attr( $newStatus ), esc_attr( $nonce ), esc_attr( $cssClass ),
+			esc_html( $label )
+		);
 	}
 
 	/**
@@ -402,11 +735,9 @@ final class Prayer_Request_List_Table extends WP_List_Table {
 	 * no page reload or nonce field is needed per-row since the shared
 	 * nonce is localized once via Admin_Loader::enqueue_assets().
 	 *
-	 * @since 1.1.0
-	 *
-	 * @param int    $id Prayer request primary key.
-	 *
-	 * @return string HTML button markup.
+	 * @since  1.1.0
+	 * @param  int $id Prayer request primary key.
+	 * @return string  HTML button markup.
 	 */
 	private function render_admin_pray_button( int $id ): string {
 		$total = ( new \Intercessor\Database\Query\Prayed_Count_Query() )->get_total_for_request( $id );
