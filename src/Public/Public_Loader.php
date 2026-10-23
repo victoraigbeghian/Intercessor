@@ -118,7 +118,7 @@ final class Public_Loader {
 			'intercessor-prayer-form',
 			INTERCESSOR_URL . 'assets/js/public/prayer-form.js',
 			array( 'intercessor-public' ),
-			INTERCESSOR_VERSION . '-20260514-form',
+			INTERCESSOR_VERSION,
 			true
 		);
 
@@ -163,11 +163,11 @@ final class Public_Loader {
 	 *
 	 * Handles nonce, login gate, and reCAPTCHA — concerns that are
 	 * specific to the web form. The shared submission pipeline
-	 * (rate limit, profanity filter, DB insert, notifications) is
-	 * delegated to Submission_Service::submit().
+	 * (rate limit, duplicate-subject check, profanity filter, DB insert,
+	 * notifications) is delegated to Submission_Pipeline::run().
 	 *
 	 * @since  1.0.0
-	 * @since  1.0.1 Delegates persistence to Submission_Service.
+	 * @since  1.0.1 Delegates persistence to Submission_Pipeline::run().
 	 * @return void
 	 */
 	public function handle_form_submission(): void {

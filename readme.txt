@@ -4,7 +4,7 @@ Tags:              prayer, prayer request, church, ministry, community
 Requires at least: 6.3
 Tested up to:      7.1
 Requires PHP:      8.0
-Stable tag:        1.1.1
+Stable tag:        1.1.2
 License:           GPL-2.0-or-later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -140,6 +140,15 @@ Other JavaScript files in `assets/js/public/` and `assets/js/admin/` are hand-wr
 
 == Changelog ==
 
+= 1.1.2 =
+* Fixed bulk status-change action sending notification emails to all selected requesters even when their request was already in the target status — notifications now go only to requesters whose status was actually changed.
+* Fixed `Request::input()` returning an empty string instead of the caller's `$default` when a key is present in POST or GET but submitted with a blank value.
+* Added `Request::get_signed_int()` for fields that may carry a negative integer; `get_int()` continues to use `absint()` and its docblock now makes the unsigned-only behaviour explicit.
+* Fixed `Rest_Api::create_request()` allocating a redundant request object solely to read the visitor's IP address for reCAPTCHA verification.
+* Fixed the `intercessor-prayer-form` script being registered with a hardcoded date suffix in its version string, making its cache key inconsistent with every other plugin asset.
+* Updated docblocks in the AJAX form handler and REST API to reference `Submission_Pipeline::run()` — the actual delegation target since 1.0.1.
+* Removed dead code: `src/Http/Submission_Service.php` (never called; `Submission_Pipeline` is the active submission path) and `src/Loader.php` (legacy bootstrap superseded by `Plugin.php` in 1.1.0).
+
 = 1.1.1 =
 * Redesigned the Prayer Requests page for prayer warriors: a read-only list of approved and private requests showing the full message (messages over 100 words collapse behind a "Read full request" dropdown), with "I prayed for this" as the only action.
 * Prayer warriors no longer see requester email addresses, the names of anonymous requesters, moderation controls, or links to the request and requester detail screens.
@@ -176,6 +185,9 @@ Other JavaScript files in `assets/js/public/` and `assets/js/admin/` are hand-wr
 * Initial release.
 
 == Upgrade Notice ==
+
+= 1.1.2 =
+Bug fixes: bulk moderation no longer sends spurious notification emails to requesters whose status did not change. Input handling and reCAPTCHA IP detection corrected. Dead code removed. No database changes; no action required on upgrade.
 
 = 1.1.1 =
 Prayer Warriors now have read-only access to approved and private Prayer Requests, with no requester contact details. They can no longer moderate, report, or export requests. Capabilities re-sync on update. Adds Screen Options and contextual Help.

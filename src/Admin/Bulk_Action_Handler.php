@@ -85,13 +85,12 @@ final class Bulk_Action_Handler {
 			exit;
 		}
 
-		$newStatus = self::ACTION_STATUS_MAP[ $action ];
-		$count     = $query->bulk_update_status( $ids, $newStatus );
+		$newStatus   = self::ACTION_STATUS_MAP[ $action ];
+		$updated_ids = $query->bulk_update_status( $ids, $newStatus );
+		$count       = count( $updated_ids );
 
-		if ( $count > 0 ) {
-			foreach ( $ids as $id ) {
-				Notifier::notify_status_change( $id, $newStatus );
-			}
+		foreach ( $updated_ids as $id ) {
+			Notifier::notify_status_change( $id, $newStatus );
 		}
 
 		wp_safe_redirect( add_query_arg(
