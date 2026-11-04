@@ -1,6 +1,6 @@
 {
     "name": "intercessor",
-    "version": "1.1.1",
+    "version": "1.1.2",
     "description": "Intercessor WordPress Plugin — Gutenberg block build tooling",
     "private": true,
     "license": "GPL-2.0-or-later",
@@ -36,6 +36,7 @@
         "@wordpress/upload-media": "^0.37.0",
         "fast-uri": "^4.2.1",
         "moment": "^2.31.0",
+        "postcss-selector-parser": "^7.1.6",
         "source-map-js": "^1.2.2"
     }
 }

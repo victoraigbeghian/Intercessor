@@ -79,7 +79,7 @@ final class Upgrader {
 	 * Currently just a full capability re-sync, which is sufficient to fix
 	 * up any role/capability drift between the version an install last ran
 	 * and the version now active — including the prayer_warrior fixes in
-	 * 1.1.1/1.1.2, and any future capability change without needing a new
+	 * 1.1.1, and any future capability change without needing a new
 	 * version-specific branch here.
 	 *
 	 * $installed_version is accepted (rather than reading the option again)

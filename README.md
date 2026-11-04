@@ -2,7 +2,7 @@
 
 > The most effective and complete WordPress plugin for managing prayer requests — with public submission, anonymous and private sharing, requester management, moderation workflows, exports, reports, and prayer activity tracking.
 
-[![WordPress Plugin Version](https://img.shields.io/badge/version-1.1.1-blue)](https://github.com/victoraigbeghian/intercessor/releases)
+[![WordPress Plugin Version](https://img.shields.io/badge/version-1.1.2-blue)](https://github.com/victoraigbeghian/intercessor/releases)
 [![License: GPL v2+](https://img.shields.io/badge/License-GPL%20v2%2B-blue.svg)](https://www.gnu.org/licenses/gpl-2.0.html)
 [![Requires PHP](https://img.shields.io/badge/PHP-8.0%2B-purple)](https://php.net)
 [![Requires WordPress](https://img.shields.io/badge/WordPress-6.3%2B-blue)](https://wordpress.org)
@@ -312,6 +312,17 @@ Please open an issue before starting work on significant changes.
 ---
 
 ## Changelog
+
+### 1.1.2
+* Fixed bulk status-change action sending notification emails to all selected requesters even when their request was already in the target status — notifications now go only to the requesters whose status was actually changed.
+* Fixed `Request::input()` returning an empty string instead of the caller's `$default` when a POST or GET key is present but submitted with a blank value.
+* Added `Request::get_signed_int()` for input fields that may carry a negative integer value; `get_int()` continues to use `absint()` for primary keys and page numbers and its docblock now makes the unsigned-only behaviour explicit.
+* Fixed `Rest_Api::create_request()` allocating a redundant `Request` object solely to read `REMOTE_ADDR` for reCAPTCHA verification — the value is now read directly from `$_SERVER`.
+* Fixed the `intercessor-prayer-form` script being registered with a hardcoded date suffix (`INTERCESSOR_VERSION . '-20260514-form'`) instead of `INTERCESSOR_VERSION`, making its cache key inconsistent with every other registered asset.
+* Updated docblocks in `Public_Loader::handle_form_submission()` and `Rest_Api::create_request()` to reference `Submission_Pipeline::run()` — the actual delegation target since 1.0.1 — and to mention the duplicate-subject check.
+* Removed stale forward reference to the unreleased version `1.1.2` from a comment in `Upgrader.php`.
+* Removed `src/Http/Submission_Service.php` — a dead class that was never called by anything in the plugin; `Submission_Pipeline` is and has always been the active submission path.
+* Removed `src/Loader.php` — a legacy bootstrap class superseded by `Plugin.php` in 1.1.0 and no longer referenced anywhere.
 
 ### 1.1.1
 * Redesigned the Prayer Requests page for prayer warriors: a read-only list of approved and private requests showing the full message (messages over 100 words collapse behind a "Read full request" dropdown), with "I prayed for this" as the only action.

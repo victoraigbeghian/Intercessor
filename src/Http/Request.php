@@ -88,17 +88,29 @@ final class Request {
 
 	/**
 	 * Retrieve input (POST overrides GET).
-     *
-     * @param string $key     Input key.
-     * @param mixed  $default Default value if key is not set.
-     *
-     * @since  1.0.0
-     * @return mixed
+	 *
+	 * Returns $default when the key is absent from both POST and GET, or
+	 * when it is present but the sanitized value is an empty string. This
+	 * matches the expectation of typed accessors (get_string, get_int, …)
+	 * whose callers pass a meaningful $default for optional fields: a blank
+	 * submitted value is treated the same as no value at all.
+	 *
+	 * @param string $key     Input key.
+	 * @param mixed  $default Default value if key is absent or blank.
+	 *
+	 * @since  1.0.0
+	 * @since  1.1.2 Returns $default for empty-string values, not just for
+	 *               absent/null keys.
+	 * @return mixed
 	 */
 	public function input( string $key, $default = null ) {
-		return $this->post[$key]
-			?? $this->get[$key]
-			?? $default;
+		$value = $this->post[ $key ] ?? $this->get[ $key ] ?? null;
+
+		if ( $value === null || $value === '' ) {
+			return $default;
+		}
+
+		return $value;
 	}
 
 	/**
@@ -159,16 +171,41 @@ final class Request {
 	}
 
     /**
-     * Return an absolute integer from input.
+     * Return a non-negative integer from input.
+     *
+     * Uses absint(), so negative submitted values are converted to their
+     * positive equivalent. Use this for primary keys, page numbers, and
+     * any other field where only non-negative integers are meaningful.
+     * For fields that may legitimately carry a negative value, use
+     * get_signed_int() instead.
      *
      * @param string $key     Input key.
-     * @param int    $default Default value if key is not set.
-     * 
+     * @param int    $default Default value if key is absent or blank.
+     *
      * @since  1.0.0
-     * @return int
+     * @since  1.1.2 Docblock clarifies unsigned-only behaviour; get_signed_int()
+     *               added for signed-integer use cases.
+     * @return int Non-negative integer.
      */
 	public function get_int( string $key, int $default = 0 ): int {
 		return absint( $this->input( $key, $default ) );
+	}
+
+    /**
+     * Return a signed integer from input.
+     *
+     * Preserves the sign of the submitted value, unlike get_int() which
+     * strips it via absint(). Use for offsets, deltas, or any field where
+     * a negative value is valid.
+     *
+     * @param string $key     Input key.
+     * @param int    $default Default value if key is absent or blank.
+     *
+     * @since  1.1.2
+     * @return int
+     */
+	public function get_signed_int( string $key, int $default = 0 ): int {
+		return intval( $this->input( $key, $default ) );
 	}
 
     /**

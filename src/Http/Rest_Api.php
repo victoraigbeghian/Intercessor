@@ -321,9 +321,9 @@ final class Rest_Api {
 	/**
 	 * Create a new prayer request via the REST API.
 	 *
-	 * Delegates to Submission_Service so that the same rate-limiting,
-	 * profanity filtering, and email notifications that the AJAX form
-	 * handler applies are enforced here as well.
+	 * Delegates to Submission_Pipeline::run() so that the same rate-limiting,
+	 * duplicate-subject check, profanity filtering, and email notifications
+	 * that the AJAX form handler applies are enforced here as well.
 	 *
 	 * reCAPTCHA is enforced here too when enabled for the form. Previously
 	 * this endpoint had no bot-protection of its own, so anyone could bypass
@@ -332,7 +332,7 @@ final class Rest_Api {
 	 * ran, but the CAPTCHA-specific defense did not.
 	 *
 	 * @since  1.0.0
-	 * @since  1.0.1 Delegates to Submission_Service (was duplicating logic).
+	 * @since  1.0.1 Delegates to Submission_Pipeline::run() (was duplicating logic).
 	 * @since  1.0.2 Enforces reCAPTCHA when enabled, matching the AJAX form
 	 *               handler. This endpoint previously bypassed it entirely.
 	 * @param  WP_REST_Request $request REST request with email, first_name, last_name,
@@ -347,7 +347,8 @@ final class Rest_Api {
 		if ( Recaptcha::is_enabled_for_form() ) {
 			$token = (string) $request->get_param( 'g-recaptcha-response' );
 
-			if ( ! Recaptcha::verify( $token, Recaptcha::get_remote_ip() ) ) {
+			$remote_ip = sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ?? '' ) );
+			if ( ! Recaptcha::verify( $token, $remote_ip ) ) {
 				return new WP_REST_Response(
 					array( 'message' => __( 'reCAPTCHA verification failed. Please try again.', 'intercessor' ) ),
 					403

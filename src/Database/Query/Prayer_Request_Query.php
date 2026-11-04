@@ -256,26 +256,29 @@ final class Prayer_Request_Query extends Query {
 	/**
 	 * Update the status of multiple prayer requests in a single operation.
 	 *
-	 * Iterates the supplied IDs and calls updateStatus() for each one, which
+	 * Iterates the supplied IDs and calls update_status() for each one, which
 	 * writes a PrayerHistory entry per transition. Silently skips IDs that
-	 * do not correspond to existing rows.
+	 * do not correspond to existing rows or are already in the target status.
 	 *
 	 * @since  1.0.0
+	 * @since  1.1.2 Returns the IDs that were actually updated instead of a
+	 *               bare count, so callers can notify only affected requesters.
 	 * @param  int[]  $ids       Primary keys of the requests to update.
 	 * @param  string $newStatus New status to apply to all selected requests.
 	 * @param  string $note      Optional moderator note recorded in each history entry.
-	 * @return int               Number of requests successfully updated.
+	 * @return int[]             IDs of the requests that were successfully updated.
 	 */
-	public function bulk_update_status( array $ids, string $newStatus, string $note = '' ): int {
-		$updated = 0;
+	public function bulk_update_status( array $ids, string $newStatus, string $note = '' ): array {
+		$updated_ids = array();
 
 		foreach ( $ids as $id ) {
-			if ( $this->update_status( absint( $id ), $newStatus, $note ) ) {
-				$updated++;
+			$id = absint( $id );
+			if ( $id > 0 && $this->update_status( $id, $newStatus, $note ) ) {
+				$updated_ids[] = $id;
 			}
 		}
 
-		return $updated;
+		return $updated_ids;
 	}
 
 	/**
