@@ -313,6 +313,10 @@ Please open an issue before starting work on significant changes.
 
 ## Changelog
 
+### 1.1.3
+* Fixed bulk status changes still emailing requesters whose request was already in the target status. The 1.1.2 fix had no effect because the database layer reports a no-op write as a successful update; unchanged requests are now skipped before the update and no history entry is written for them.
+* Fixed the single-request status form emailing the requester when the same status was saved again, for example to record a moderator note.
+
 ### 1.1.2
 * Fixed bulk status-change action sending notification emails to all selected requesters even when their request was already in the target status — notifications now go only to the requesters whose status was actually changed.
 * Fixed `Request::input()` returning an empty string instead of the caller's `$default` when a POST or GET key is present but submitted with a blank value.

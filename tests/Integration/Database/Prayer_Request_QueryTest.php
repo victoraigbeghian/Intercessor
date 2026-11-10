@@ -245,9 +245,9 @@ class Prayer_Request_QueryTest extends WP_UnitTestCase {
 		$id1 = $this->insert_fixture( [ 'status' => 'pending' ] );
 		$id2 = $this->insert_fixture( [ 'status' => 'pending' ] );
 
-		$count = $this->query->bulk_update_status( [ $id1, $id2 ], 'approved' );
+		$updated = $this->query->bulk_update_status( [ $id1, $id2 ], 'approved' );
 
-		$this->assertSame( 2, $count );
+		$this->assertSame( [ $id1, $id2 ], $updated );
 		$this->assertSame( 'approved', $this->query->get_item( $id1 )->status );
 		$this->assertSame( 'approved', $this->query->get_item( $id2 )->status );
 	}
@@ -264,11 +264,31 @@ class Prayer_Request_QueryTest extends WP_UnitTestCase {
 	}
 
 	public function test_bulk_update_status_skips_nonexistent_ids(): void {
-		$id    = $this->insert_fixture( [ 'status' => 'pending' ] );
-		$count = $this->query->bulk_update_status( [ $id, 999999 ], 'approved' );
+		$id      = $this->insert_fixture( [ 'status' => 'pending' ] );
+		$updated = $this->query->bulk_update_status( [ $id, 999999 ], 'approved' );
 
 		// Only the real ID should be updated.
-		$this->assertSame( 1, $count );
+		$this->assertSame( [ $id ], $updated );
+	}
+
+	public function test_bulk_update_status_skips_ids_already_in_target_status(): void {
+		$pending  = $this->insert_fixture( [ 'status' => 'pending' ] );
+		$approved = $this->insert_fixture( [ 'status' => 'approved' ] );
+
+		$updated = $this->query->bulk_update_status( [ $pending, $approved ], 'approved' );
+
+		// Only the request whose status changed is reported, so only its
+		// requester is notified.
+		$this->assertSame( [ $pending ], $updated );
+	}
+
+	public function test_bulk_update_status_writes_no_history_for_unchanged_ids(): void {
+		$approved = $this->insert_fixture( [ 'status' => 'approved' ] );
+
+		$this->query->bulk_update_status( [ $approved ], 'approved' );
+
+		$history = ( new \Intercessor\Database\Query\Prayer_History_Query() )->get_for_request( $approved );
+		$this->assertCount( 0, $history );
 	}
 
 	// -------------------------------------------------------------------------

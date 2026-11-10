@@ -263,6 +263,9 @@ final class Prayer_Request_Query extends Query {
 	 * @since  1.0.0
 	 * @since  1.1.2 Returns the IDs that were actually updated instead of a
 	 *               bare count, so callers can notify only affected requesters.
+	 * @since  1.1.3 Actually skips requests already in the target status.
+	 *               update_status() reports success for a no-op write, so
+	 *               the current status is compared here before calling it.
 	 * @param  int[]  $ids       Primary keys of the requests to update.
 	 * @param  string $newStatus New status to apply to all selected requests.
 	 * @param  string $note      Optional moderator note recorded in each history entry.
@@ -273,7 +276,21 @@ final class Prayer_Request_Query extends Query {
 
 		foreach ( $ids as $id ) {
 			$id = absint( $id );
-			if ( $id > 0 && $this->update_status( $id, $newStatus, $note ) ) {
+
+			if ( $id === 0 ) {
+				continue;
+			}
+
+			$item = $this->get_item( $id );
+
+			// Skip missing rows and rows that would not change. Without this
+			// check every selected ID is reported as updated, because
+			// update_item() returns true for a write that changes nothing.
+			if ( ! $item || $item->status === $newStatus ) {
+				continue;
+			}
+
+			if ( $this->update_status( $id, $newStatus, $note ) ) {
 				$updated_ids[] = $id;
 			}
 		}
