@@ -14,6 +14,7 @@ namespace Intercessor\Util;
 defined( 'ABSPATH' ) || exit;
 
 use Intercessor\Admin\Settings;
+use Intercessor\Database\Query\Requester_Query;
 use Intercessor\Roles;
 
 /**
@@ -171,6 +172,15 @@ final class Registration_Handler {
 		// ── Mark as pending confirmation ──────────────────────────────────────
 		update_user_meta( $user_id, self::META_PENDING, '1' );
 
+		// ── Link the requester row to the new account ─────────────────────────
+		// The submission pipeline created (or found) the requester row before
+		// this account existed, so its wp_user_id is still 0. Without this the
+		// Prayer History block, which looks requesters up by user ID, never
+		// finds the person's requests, and the admin "resend confirmation" and
+		// "confirm manually" actions never appear. Linking while the account
+		// is still pending is safe because a pending account cannot log in.
+		( new Requester_Query() )->link_to_user( $email, (int) $user_id );
+
 		$token  = self::generate_token();
 		$expiry = time() + self::TOKEN_TTL;
 
@@ -192,9 +202,25 @@ final class Registration_Handler {
 	}
 
 	/**
-	 * Handle an email confirmation link click.
+	 * Wire the registration hooks.
 	 *
-	 * Hooked to 'init' at priority 10 (added during priority-5 init run).
+	 * Called from Plugin::init(), which runs on 'init' at priority 5, so the
+	 * confirmation handler added here still fires at priority 10 of the same
+	 * 'init' run.
+	 *
+	 * @since  1.1.3
+	 * @return void
+	 */
+	public static function register(): void {
+		add_action( 'init', array( self::class, 'handle_confirmation' ), 10 );
+		add_filter( 'wp_authenticate_user', array( self::class, 'block_pending_login' ), 10, 2 );
+		add_action( 'after_password_reset', array( self::class, 'confirm_on_password_reset' ), 10, 1 );
+	}
+
+	/**
+	 * Handle a click on the emailed confirmation link.
+	 *
+	 * Hooked to 'init' at priority 10 by register().
 	 * Reads the 'intercessor_confirm_email' query parameter, validates the
 	 * token, and if valid removes the pending flag before redirecting back to
 	 * the source page (where the prayer form lives) with a status query arg.
@@ -239,7 +265,66 @@ final class Registration_Handler {
 			return;
 		}
 
-		// Confirm the account.
+		self::mark_confirmed( $user_id );
+
+		self::redirect_after_confirm( 'confirmed', $source_url );
+	}
+
+	/**
+	 * Refuse the login of an account whose email address is not yet confirmed.
+	 *
+	 * Hooked to 'wp_authenticate_user', which WordPress runs for username and
+	 * email logins before it checks the password. The password is checked
+	 * here first so that the "not confirmed" message is only shown to someone
+	 * who knows it; anyone else gets WordPress's normal wrong-password error
+	 * and learns nothing about the account's state.
+	 *
+	 * @since  1.1.3
+	 * @param  \WP_User|\WP_Error $user     User found for the submitted login, or an earlier error.
+	 * @param  string             $password Password submitted with the login.
+	 * @return \WP_User|\WP_Error           The user unchanged, or an error when confirmation is pending.
+	 */
+	public static function block_pending_login( $user, $password ) {
+		if ( ! $user instanceof \WP_User || ! self::is_pending( (int) $user->ID ) ) {
+			return $user;
+		}
+
+		if ( ! wp_check_password( (string) $password, $user->user_pass, $user->ID ) ) {
+			return $user;
+		}
+
+		return new \WP_Error(
+			'intercessor_email_unconfirmed',
+			__( 'Please confirm your email address before logging in. Open the confirmation link we emailed you, or reset your password to confirm your address.', 'intercessor' )
+		);
+	}
+
+	/**
+	 * Treat a completed password reset as confirmation of the email address.
+	 *
+	 * Hooked to 'after_password_reset'. A reset can only be completed from a
+	 * link sent to the account's address, so it proves the same thing the
+	 * confirmation link does. This is also the way back in for someone whose
+	 * confirmation link has expired.
+	 *
+	 * @since  1.1.3
+	 * @param  \WP_User $user User whose password was just reset.
+	 * @return void
+	 */
+	public static function confirm_on_password_reset( $user ): void {
+		if ( $user instanceof \WP_User && self::is_pending( (int) $user->ID ) ) {
+			self::mark_confirmed( (int) $user->ID );
+		}
+	}
+
+	/**
+	 * Clear the pending flag and token data, then announce the confirmation.
+	 *
+	 * @since  1.1.3
+	 * @param  int $user_id WordPress user ID being confirmed.
+	 * @return void
+	 */
+	private static function mark_confirmed( int $user_id ): void {
 		delete_user_meta( $user_id, self::META_PENDING );
 		self::cleanup_token_meta( $user_id );
 		delete_user_meta( $user_id, self::META_SOURCE_URL );
@@ -251,8 +336,6 @@ final class Registration_Handler {
 		 * @param int $user_id Confirmed WordPress user ID.
 		 */
 		do_action( 'intercessor_email_confirmed', $user_id );
-
-		self::redirect_after_confirm( 'confirmed', $source_url );
 	}
 
 	// ── Private helpers ───────────────────────────────────────────────────────

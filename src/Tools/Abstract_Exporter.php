@@ -217,10 +217,32 @@ abstract class Abstract_Exporter {
 
 		// STREAMING: avoids loading full dataset into memory
 		foreach ( $this->get_rows_stream() as $row ) {
-			fputcsv( $output, $row );
+			fputcsv( $output, array_map( array( self::class, 'neutralise_formula' ), $row ) );
 		}
 
 		exit;
+	}
+
+	/**
+	 * Stop a spreadsheet from treating a cell as a formula.
+	 *
+	 * Subjects, prayer content, names and notes are typed by visitors. Excel
+	 * and LibreOffice evaluate any cell that starts with =, +, - or @ (or a
+	 * tab or carriage return followed by one), so a submitted value such as
+	 * =HYPERLINK(...) would run when a moderator opens the export. Prefixing
+	 * an apostrophe makes the application show the text as typed. Numbers
+	 * and other non-string values are returned unchanged.
+	 *
+	 * @since  1.1.3
+	 * @param  mixed $value Cell value.
+	 * @return mixed        The value, prefixed with an apostrophe when it could be read as a formula.
+	 */
+	public static function neutralise_formula( $value ) {
+		if ( is_string( $value ) && 1 === preg_match( '/^[=+\-@\t\r]/', $value ) ) {
+			return "'" . $value;
+		}
+
+		return $value;
 	}
 
 	/**

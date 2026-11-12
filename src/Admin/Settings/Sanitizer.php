@@ -63,9 +63,19 @@ class Sanitizer {
 
 		foreach ( $types as $key => $type ) {
 			if ( ! array_key_exists( $key, $input ) ) {
-				// Unchecked checkboxes are absent from $_POST. The caller is
-				// responsible for defaulting missing keys (typically via
-				// array_merge with the existing stored values).
+				// Unchecked checkboxes and empty multichecks are absent from
+				// $_POST, so without this branch they'd keep whatever value was
+				// already stored. That is the 1.1.2 bug: a user who unchecks a
+				// previously-ticked box sees it snap back on reload because the
+				// stored '1' survives the sanitize → array_merge in the Renderer.
+				// Only fields known to omit themselves get this default; every
+				// other missing key is still ignored so unrelated tab writes
+				// are not overwritten.
+				if ( 'checkbox' === $type ) {
+					$output[ $key ] = '0';
+				} elseif ( 'multicheck' === $type ) {
+					$output[ $key ] = array();
+				}
 				continue;
 			}
 

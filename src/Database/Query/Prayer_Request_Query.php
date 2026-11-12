@@ -155,18 +155,19 @@ final class Prayer_Request_Query extends Query {
 	/**
 	 * Build the after/before datetime strings for a named calendar period.
 	 *
-	 * Delegates to Date::period_boundaries() so that the single canonical
+	 * Delegates to Date::period_boundaries_utc() so that the single canonical
 	 * implementation is used everywhere (Date.php, Prayer_Request_Stats,
 	 * and here), including its half-open interval convention:
 	 * $after is inclusive, $before is the start of the next period (exclusive).
 	 *
 	 * @since  1.0.2
 	 * @since  1.0.1 Delegates to Date::period_boundaries() — no longer duplicates logic.
+	 * @since  1.1.3 Returns UTC boundaries, matching the stored UTC column.
 	 * @param  string $period One of 'today', 'week', 'month', or 'year'.
-	 * @return array{0: string, 1: string} [ $after, $before ] as 'Y-m-d H:i:s' strings.
+	 * @return array{0: string, 1: string} [ $after, $before ] as 'Y-m-d H:i:s' strings in UTC.
 	 */
 	private function build_date_range( string $period ): array {
-		return \Intercessor\Database\Queries\Date::period_boundaries( $period );
+		return \Intercessor\Database\Queries\Date::period_boundaries_utc( $period );
 	}
 	/**
 	 * Retrieve approved, publicly visible prayer requests.
@@ -235,7 +236,21 @@ final class Prayer_Request_Query extends Query {
 			return false;
 		}
 
-		$updated = $this->update_item( $id, array( 'status' => $newStatus ) );
+		$fields = array( 'status' => $newStatus );
+
+		// Keep `is_public` aligned with the status: private rows must stay out
+		// of every public surface (REST reads, Prayer Wall, feeds). Leaving
+		// is_public = 1 on a private row lets the data contradict the status,
+		// and a future caller that only checks is_public() would expose it.
+		// Rows that were never public to start with (archived with is_public = 0)
+		// keep that state on moves between non-private statuses.
+		if ( 'private' === $newStatus ) {
+			$fields['is_public'] = 0;
+		} elseif ( 'private' === $item->status ) {
+			$fields['is_public'] = 1;
+		}
+
+		$updated = $this->update_item( $id, $fields );
 
 		if ( $updated ) {
 			$historyQuery = new Prayer_History_Query();
@@ -266,6 +281,8 @@ final class Prayer_Request_Query extends Query {
 	 * @since  1.1.3 Actually skips requests already in the target status.
 	 *               update_status() reports success for a no-op write, so
 	 *               the current status is compared here before calling it.
+	 * @since  1.1.3 Also toggles is_public on moves into and out of 'private',
+	 *               so the visibility flag never contradicts the status.
 	 * @param  int[]  $ids       Primary keys of the requests to update.
 	 * @param  string $newStatus New status to apply to all selected requests.
 	 * @param  string $note      Optional moderator note recorded in each history entry.

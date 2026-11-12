@@ -115,4 +115,38 @@ class Rate_LimiterTest extends WP_UnitTestCase {
 		delete_option( 'intercessor_settings' );
 		$this->assertSame( 3, Rate_Limiter::get_limit() );
 	}
+
+	// -------------------------------------------------------------------------
+	// Per-client limit
+	// -------------------------------------------------------------------------
+
+	public function test_client_is_allowed_until_hourly_limit_is_reached(): void {
+		$_SERVER['REMOTE_ADDR'] = '203.0.113.10';
+		add_filter( 'intercessor_max_requests_per_ip_per_hour', static fn() => 2 );
+
+		$this->assertTrue( Rate_Limiter::is_client_allowed() );
+		Rate_Limiter::record_client_submission();
+		$this->assertTrue( Rate_Limiter::is_client_allowed() );
+		Rate_Limiter::record_client_submission();
+		$this->assertFalse( Rate_Limiter::is_client_allowed() );
+	}
+
+	public function test_client_limit_is_counted_per_address(): void {
+		add_filter( 'intercessor_max_requests_per_ip_per_hour', static fn() => 1 );
+
+		$_SERVER['REMOTE_ADDR'] = '203.0.113.11';
+		Rate_Limiter::record_client_submission();
+		$this->assertFalse( Rate_Limiter::is_client_allowed() );
+
+		$_SERVER['REMOTE_ADDR'] = '203.0.113.12';
+		$this->assertTrue( Rate_Limiter::is_client_allowed() );
+	}
+
+	public function test_client_limit_can_be_disabled_with_filter(): void {
+		$_SERVER['REMOTE_ADDR'] = '203.0.113.13';
+		add_filter( 'intercessor_max_requests_per_ip_per_hour', '__return_zero' );
+
+		Rate_Limiter::record_client_submission();
+		$this->assertTrue( Rate_Limiter::is_client_allowed() );
+	}
 }

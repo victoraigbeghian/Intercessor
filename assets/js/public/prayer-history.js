@@ -44,7 +44,10 @@
 			if ( json.success ) {
 				const row   = form.closest( '.ipr-user-row' );
 				const badge = row ? row.querySelector( '.ipr-status-badge' ) : null;
-				if ( badge ) {
+				// A private request keeps its status when edited; the server
+				// reports whether the request went back to pending.
+				const nowPending = ! json.data || json.data.status !== 'private';
+				if ( badge && nowPending ) {
 					badge.className   = 'ipr-status-badge intercessor-status-pending';
 					badge.textContent = i18n.pendingLabel || 'Pending';
 				}

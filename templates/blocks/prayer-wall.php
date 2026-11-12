@@ -91,7 +91,7 @@ if ( ! defined( 'INTERCESSOR_PRAY_CONFIG_PRINTED' ) ) {
 						<?php if ( $showDate && $item->date_created ) : ?>
 							<time class="intercessor-request-date"
 								  datetime="<?php echo esc_attr( $item->date_created ); ?>">
-								<?php echo esc_html( mysql2date( $dateFormat, $item->date_created ) ); ?>
+								<?php echo esc_html( \Intercessor\Util\Local_Time::format( $dateFormat, $item->date_created ) ); ?>
 							</time>
 						<?php endif; ?>
 					</div>

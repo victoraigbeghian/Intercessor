@@ -1,6 +1,6 @@
 # Architecture
 
-Intercessor is organized as a modern WordPress plugin using PHP namespaces, a custom PSR-4 autoloader, and the BerlinDB library for custom database tables.
+Intercessor is organized as a modern WordPress plugin using PHP namespaces, a custom PSR-4 autoloader, and a built-in data layer for custom database tables, modelled on BerlinDB.
 
 ## Directory Structure
 
@@ -35,14 +35,14 @@ intercessor/
 │   ├── Requirements.php     PHP/WP version checks
 │   ├── Admin/               Dashboard pages, settings, list tables
 │   ├── Block/               Gutenberg block render callbacks
-│   ├── Database/            BerlinDB tables, schemas, queries, rows
+│   ├── Database/            Tables, schemas, queries, rows
 │   ├── Http/                Request handling, REST API, submissions
 │   ├── Public/              Front-end asset loading
 │   ├── Reports/             Reporting views and stats
 │   ├── Tools/               Import/export handlers
 │   ├── Util/                Cron, rate limiter, profanity filter, etc.
 │   ├── blocks/              Gutenberg block source (JSX/JS)
-│   └── includes/berlindb/   Bundled BerlinDB library
+│   └── includes/berlindb/   Data-layer base classes (BerlinDB-style, not the upstream library)
 ├── templates/               PHP templates
 │   ├── admin/               Dashboard page templates
 │   └── blocks/              Block render templates
@@ -64,7 +64,17 @@ A custom PSR-4 autoloader (`Util\Autoloader`) maps the `Intercessor\` namespace 
 
 ## Database Layer
 
-Intercessor uses [BerlinDB](https://github.com/berlindb/core), a lightweight ORM-like library for WordPress custom tables. Each entity has four classes:
+Intercessor has its own small data layer for custom tables, in `src/includes/berlindb/` under the `Intercessor\BerlinDB` namespace. It follows the Table / Schema / Query / Row structure of [BerlinDB](https://github.com/berlindb/core), but it is a separate, much smaller implementation, not a copy of that library, and it cannot be replaced by an upstream release.
+
+Differences from upstream BerlinDB that matter when writing code against it:
+
+- `get_items()` and `count_items()` accept column filters, `search`, `number`, `offset`, `orderby` and `order` only. There is no `fields`, `date_query`, `__in` / `__not_in`, or meta support; unknown arguments are ignored without an error.
+- `get_items()` always returns Row objects.
+- `update_item()` returns `true` when the write succeeded, including when nothing changed. It returns `false` only on a database error.
+- There is no query cache.
+- `date_created` and `date_modified` are written in UTC. Use `Intercessor\Util\Local_Time` to display them or to build report boundaries.
+
+Each entity has four classes:
 
 - **Table** — defines the table name, version, and schema SQL
 - **Schema** — declares columns and their types

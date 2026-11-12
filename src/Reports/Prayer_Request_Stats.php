@@ -14,6 +14,7 @@ namespace Intercessor\Reports;
 defined( 'ABSPATH' ) || exit;
 
 use Intercessor\Database\Queries\Date;
+use Intercessor\Util\Local_Time;
 
 /**
  * Provides query methods for prayer request data.
@@ -116,7 +117,7 @@ final class Prayer_Request_Stats {
 					$this->table
 				);
 			} else {
-				[ $after, $before ] = Date::period_boundaries( $period );
+				[ $after, $before ] = Date::period_boundaries_utc( $period );
 				$sql = $wpdb->prepare(
 					'SELECT COUNT(*) FROM %i WHERE date_created >= %s AND date_created < %s',
 					$this->table,
@@ -138,7 +139,7 @@ final class Prayer_Request_Stats {
 				$status
 			);
 		} else {
-			[ $after, $before ] = Date::period_boundaries( $period );
+			[ $after, $before ] = Date::period_boundaries_utc( $period );
 			$sql = $wpdb->prepare(
 				'SELECT COUNT(*) FROM %i WHERE status = %s AND date_created >= %s AND date_created < %s',
 				$this->table,
@@ -177,7 +178,7 @@ final class Prayer_Request_Stats {
 				$this->table
 			);
 		} else {
-			[ $after, $before ] = Date::period_boundaries( $period );
+			[ $after, $before ] = Date::period_boundaries_utc( $period );
 			$sql = $wpdb->prepare(
 				'SELECT status, COUNT(*) AS cnt FROM %i WHERE date_created >= %s AND date_created < %s GROUP BY status',
 				$this->table,
@@ -225,10 +226,11 @@ final class Prayer_Request_Stats {
 
 		$sql = $wpdb->prepare(
 			'SELECT
-				DATE(date_created) AS day,
+				DATE( DATE_ADD( date_created, INTERVAL %d SECOND ) ) AS day,
 				COUNT(*) AS cnt
 			FROM %i
 			WHERE 1=1',
+			Local_Time::utc_offset_seconds(),
 			$this->table
 		);
 
@@ -301,35 +303,45 @@ final class Prayer_Request_Stats {
 
 		$start_of_week = (int) get_option( 'start_of_week', 0 );
 
+		// date_created is UTC; shift it to site-local time before bucketing
+		// so a week (and its year) is the site's calendar week.
+		$offset = Local_Time::utc_offset_seconds();
+
 		if ( 1 === $start_of_week ) {
 			$sql = $wpdb->prepare(
 				'SELECT
-					WEEK( date_created, 1 ) AS wk,
-					YEAR(date_created) AS yr,
+					WEEK( DATE_ADD( date_created, INTERVAL %d SECOND ), 1 ) AS wk,
+					YEAR( DATE_ADD( date_created, INTERVAL %d SECOND ) ) AS yr,
 					COUNT(*) AS cnt
 				FROM %i
 				WHERE 1=1',
+				$offset,
+				$offset,
 				$this->table
 			);
 		} elseif ( $start_of_week >= 2 && $start_of_week <= 6 ) {
 			$sql = $wpdb->prepare(
 				'SELECT
-					WEEK( DATE_SUB( date_created, INTERVAL %d DAY ), 0 ) AS wk,
-					YEAR(date_created) AS yr,
+					WEEK( DATE_SUB( DATE_ADD( date_created, INTERVAL %d SECOND ), INTERVAL %d DAY ), 0 ) AS wk,
+					YEAR( DATE_ADD( date_created, INTERVAL %d SECOND ) ) AS yr,
 					COUNT(*) AS cnt
 				FROM %i
 				WHERE 1=1',
+				$offset,
 				$start_of_week,
+				$offset,
 				$this->table
 			);
 		} else {
 			$sql = $wpdb->prepare(
 				'SELECT
-					WEEK( date_created, 0 ) AS wk,
-					YEAR(date_created) AS yr,
+					WEEK( DATE_ADD( date_created, INTERVAL %d SECOND ), 0 ) AS wk,
+					YEAR( DATE_ADD( date_created, INTERVAL %d SECOND ) ) AS yr,
 					COUNT(*) AS cnt
 				FROM %i
 				WHERE 1=1',
+				$offset,
+				$offset,
 				$this->table
 			);
 		}
@@ -502,7 +514,7 @@ final class Prayer_Request_Stats {
 			return $sql;
 		}
 
-		[ $after, $before ] = Date::period_boundaries( $period );
+		[ $after, $before ] = Date::period_boundaries_utc( $period );
 
 		if ( 'pr.date_created' === $column ) {
 			return $sql . $wpdb->prepare(

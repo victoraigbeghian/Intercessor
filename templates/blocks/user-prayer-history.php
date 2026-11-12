@@ -68,7 +68,7 @@ $status_label = static function ( string $status ): string {
 			<?php foreach ( $items as $item ) :
 				$prayed_total = $countQuery->get_total_for_request( $item->id );
 				$item_date    = $item->date_created
-					? mysql2date( $dateFormat, $item->date_created )
+					? \Intercessor\Util\Local_Time::format( $dateFormat, $item->date_created )
 					: '';
 			?>
 

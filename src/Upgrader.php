@@ -12,6 +12,9 @@ namespace Intercessor;
 // Exit if accessed directly.
 defined( 'ABSPATH' ) || exit;
 
+use Intercessor\Database\Query\Requester_Query;
+use Intercessor\Util\Registration_Handler;
+
 /**
  * Detects an in-place version change and re-runs the tasks that
  * Activator::activate() normally handles, but which only fire on
@@ -102,5 +105,42 @@ final class Upgrader {
 		// themselves and are safe to call unconditionally.
 		Roles::remove_caps();
 		Roles::add_caps();
+
+		// One-time tasks for installs coming from a release before 1.1.3.
+		// A fresh activation records its version in Activator and never
+		// reaches here with an empty string that has data to migrate.
+		if ( $installed_version !== '' && version_compare( $installed_version, '1.1.3', '<' ) ) {
+			self::end_sessions_of_unconfirmed_accounts();
+
+			// Repair requester rows that were never linked to the account
+			// created alongside them. Runs after the sessions above are
+			// ended: linking a row to a still-pending account is only safe
+			// once that account can no longer be logged in.
+			( new Requester_Query() )->link_unlinked_to_matching_users();
+		}
+	}
+
+	/**
+	 * Log out accounts that registered through the prayer form but never
+	 * confirmed their email address.
+	 *
+	 * Before 1.1.3 the pending flag was not checked at login, so such an
+	 * account may hold a valid session. From 1.1.3 a pending account cannot
+	 * log in; ending existing sessions makes that true for accounts that are
+	 * already logged in as well.
+	 *
+	 * @since  1.1.3
+	 * @return void
+	 */
+	private static function end_sessions_of_unconfirmed_accounts(): void {
+		$user_ids = get_users( array(
+			'meta_key' => Registration_Handler::META_PENDING, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+			'fields'   => 'ids',
+			'number'   => -1,
+		) );
+
+		foreach ( $user_ids as $user_id ) {
+			\WP_Session_Tokens::get_instance( (int) $user_id )->destroy_all();
+		}
 	}
 }
