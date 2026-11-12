@@ -24,12 +24,13 @@ fs.mkdirSync( distDir, { recursive: true } );
 // Directories to exclude (matched against path segments after the zip prefix).
 const EXCLUDE_DIRS = new Set( [
 	'node_modules', '.github', 'tests', 'dist', 'scripts', 'wiki', '.git',
+	'vendor',
 ] );
 
 // Root-level files to exclude.
 const EXCLUDE_FILES = new Set( [
 	'package.json', 'package-lock.json', 'webpack.config.js',
-	'composer.json', 'composer.lock', 'phpcs.xml',
+	'composer.json', 'composer.lock', 'phpcs.xml', '.distignore',
 	'phpunit.xml', 'phpunit.xml.dist', '.gitignore', '.npmrc', 'README.md',
 ] );
 

@@ -14,6 +14,9 @@ defined( 'ABSPATH' ) || exit;
 
 if ( ! function_exists( 'sanitize_text_field' ) ) {
 	function sanitize_text_field( string $str ): string {
+		// WordPress strips the contents of <script> and <style>, not just the
+		// tags, so emulate that here before strip_tags() removes the markup.
+		$str = preg_replace( '#<(script|style)\b[^>]*>.*?</\1\s*>#is', '', $str );
 		return trim( strip_tags( $str ) );
 	}
 }
@@ -32,7 +35,15 @@ if ( ! function_exists( 'sanitize_textarea_field' ) ) {
 
 if ( ! function_exists( 'sanitize_key' ) ) {
 	function sanitize_key( string $key ): string {
-		return strtolower( preg_replace( '/[^a-z0-9_\-]/', '', $key ) );
+		// WordPress lowercases first, then strips. Doing it the other way
+		// around removes every uppercase letter before it can be lowercased.
+		return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( $key ) );
+	}
+}
+
+if ( ! function_exists( 'esc_attr' ) ) {
+	function esc_attr( string $text ): string {
+		return htmlspecialchars( $text, ENT_QUOTES, 'UTF-8' );
 	}
 }
 

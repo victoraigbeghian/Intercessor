@@ -46,9 +46,21 @@ node_modules
 # Vendor
 vendor
 
+# Packaged plugin zips (npm run zip); attach these to GitHub releases instead
+/dist
+
+# Composer lock file: dev tooling only, resolved fresh per PHP version in CI
+composer.lock
+
+# Local PHPUnit override (phpunit.xml.dist is the tracked config)
+/phpunit.xml
+
 # PHPCS
 .phpcs.xml
 phpcs.xml
 
 # POT File
 languages/intercessor.pot
+
+# PHPUnit test results
+.phpunit.result.cache    

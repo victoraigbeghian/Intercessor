@@ -205,9 +205,33 @@ class Prayer_Request_QueryTest extends WP_UnitTestCase {
 		$this->assertSame( 'approved', $item->status );
 	}
 
-	public function test_update_status_returns_false_for_nonexistent_id(): void {
-		$result = $this->query->update_status( 999999, 'approved' );
-		$this->assertFalse( $result );
+	public function test_update_status_to_private_clears_is_public(): void {
+		// A public, approved request moved to 'private' must drop out of every
+		// public surface — Prayer Wall, feeds, public REST reads — which all
+		// filter by is_public = 1.
+		$id = $this->insert_fixture( [ 'status' => 'approved', 'is_public' => 1 ] );
+
+		$this->assertTrue( $this->query->update_status( $id, 'private' ) );
+		$this->assertSame( 0, (int) $this->query->get_item( $id )->is_public );
+	}
+
+	public function test_update_status_leaving_private_restores_is_public(): void {
+		$id = $this->insert_fixture( [ 'status' => 'private', 'is_public' => 0 ] );
+
+		$this->assertTrue( $this->query->update_status( $id, 'approved' ) );
+		$this->assertSame( 1, (int) $this->query->get_item( $id )->is_public );
+	}
+
+	public function test_update_status_between_non_private_statuses_preserves_is_public(): void {
+		// An archived, hidden request moved to rejected keeps is_public as it was.
+		$hidden = $this->insert_fixture( [ 'status' => 'archived', 'is_public' => 0 ] );
+		$public = $this->insert_fixture( [ 'status' => 'approved', 'is_public' => 1 ] );
+
+		$this->query->update_status( $hidden, 'rejected' );
+		$this->query->update_status( $public, 'pending' );
+
+		$this->assertSame( 0, (int) $this->query->get_item( $hidden )->is_public );
+		$this->assertSame( 1, (int) $this->query->get_item( $public )->is_public );
 	}
 
 	// -------------------------------------------------------------------------
@@ -245,9 +269,9 @@ class Prayer_Request_QueryTest extends WP_UnitTestCase {
 		$id1 = $this->insert_fixture( [ 'status' => 'pending' ] );
 		$id2 = $this->insert_fixture( [ 'status' => 'pending' ] );
 
-		$count = $this->query->bulk_update_status( [ $id1, $id2 ], 'approved' );
+		$updated = $this->query->bulk_update_status( [ $id1, $id2 ], 'approved' );
 
-		$this->assertSame( 2, $count );
+		$this->assertSame( [ $id1, $id2 ], $updated );
 		$this->assertSame( 'approved', $this->query->get_item( $id1 )->status );
 		$this->assertSame( 'approved', $this->query->get_item( $id2 )->status );
 	}
@@ -264,11 +288,31 @@ class Prayer_Request_QueryTest extends WP_UnitTestCase {
 	}
 
 	public function test_bulk_update_status_skips_nonexistent_ids(): void {
-		$id    = $this->insert_fixture( [ 'status' => 'pending' ] );
-		$count = $this->query->bulk_update_status( [ $id, 999999 ], 'approved' );
+		$id      = $this->insert_fixture( [ 'status' => 'pending' ] );
+		$updated = $this->query->bulk_update_status( [ $id, 999999 ], 'approved' );
 
 		// Only the real ID should be updated.
-		$this->assertSame( 1, $count );
+		$this->assertSame( [ $id ], $updated );
+	}
+
+	public function test_bulk_update_status_skips_ids_already_in_target_status(): void {
+		$pending  = $this->insert_fixture( [ 'status' => 'pending' ] );
+		$approved = $this->insert_fixture( [ 'status' => 'approved' ] );
+
+		$updated = $this->query->bulk_update_status( [ $pending, $approved ], 'approved' );
+
+		// Only the request whose status changed is reported, so only its
+		// requester is notified.
+		$this->assertSame( [ $pending ], $updated );
+	}
+
+	public function test_bulk_update_status_writes_no_history_for_unchanged_ids(): void {
+		$approved = $this->insert_fixture( [ 'status' => 'approved' ] );
+
+		$this->query->bulk_update_status( [ $approved ], 'approved' );
+
+		$history = ( new \Intercessor\Database\Query\Prayer_History_Query() )->get_for_request( $approved );
+		$this->assertCount( 0, $history );
 	}
 
 	// -------------------------------------------------------------------------

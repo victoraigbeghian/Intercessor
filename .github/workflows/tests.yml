@@ -1,0 +1,48 @@
+name: Tests
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: PHP ${{ matrix.php }} syntax
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The plugin supports PHP 8.0 and later, so every file must parse on all of these.
+        php: [ '8.0', '8.1', '8.2', '8.3', '8.4' ]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+      - name: Check syntax
+        run: |
+          find . -name '*.php' -not -path './vendor/*' -not -path './node_modules/*' -print0 \
+            | xargs -0 -n1 php -l > /dev/null
+
+  unit:
+    name: Unit tests (PHP ${{ matrix.php }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # PHPUnit 11, which phpunit.xml.dist is written for, needs PHP 8.2 or later.
+        php: [ '8.2', '8.3', '8.4' ]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+      - name: Install dev dependencies
+        run: composer install --no-interaction --no-progress
+      - name: Run the unit suite
+        run: vendor/bin/phpunit --testsuite unit

@@ -1,26 +1,22 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+    TWO TEST SUITES:
+
+    unit         Pure PHP, no WordPress or database required. Runs in seconds.
+                   vendor/bin/phpunit (flag: testsuite unit)
+
+    integration  Requires a real WordPress test installation + test DB.
+                   WP_TESTS_DIR=/tmp/wordpress-tests-lib vendor/bin/phpunit (flag: testsuite integration)
+
+    Code coverage is captured for src/ only; the data-layer base classes
+    under src/includes/ are excluded. HTML report:
+    vendor/bin/phpunit (flag: coverage-html coverage/)
+-->
 <phpunit
-    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/11.0/phpunit.xsd"
     bootstrap="tests/bootstrap-unit.php"
     colors="true"
-    displayDetailsOnTestsThatTriggerDeprecations="true"
-    displayDetailsOnTestsThatTriggerErrors="true"
-    displayDetailsOnTestsThatTriggerNotices="true"
-    displayDetailsOnTestsThatTriggerWarnings="true"
 >
-    <!--
-        TWO TEST SUITES:
-
-        unit  — Pure PHP, no WordPress or database required.
-                Runs in seconds. Default when no suite is specified.
-                vendor/bin/phpunit
-                vendor/bin/phpunit --testsuite unit
-
-        integration — Requires a real WordPress test installation + test DB.
-                      Set WP_TESTS_DIR before running:
-                      WP_TESTS_DIR=/tmp/wordpress-tests-lib vendor/bin/phpunit - -testsuite integration
-    -->
+    
     <testsuites>
 
         <testsuite name="unit">
@@ -34,18 +30,7 @@
 
     </testsuites>
 
-    <!--
-        Code coverage: src/ only — excludes bundled BerlinDB library.
-        Generate HTML report:
-          vendor/bin/phpunit --coverage-html coverage/
-    -->
-    <source>
-        <include>
-            <directory suffix=".php">src</directory>
-        </include>
-        <exclude>
-            <directory>src/includes</directory>
-        </exclude>
-    </source>
+    
+    
 
 </phpunit>

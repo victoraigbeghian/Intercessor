@@ -1,9 +1,11 @@
 <?php
 /**
- * BerlinDB loader — bundled with Intercessor.
+ * Loader for Intercessor's custom-table data layer.
  *
- * Loads all plugin-scoped BerlinDB core class files in dependency order and
- * guards against double-loading them within Intercessor.
+ * The classes live in the Intercessor\BerlinDB namespace and follow the
+ * structure of BerlinDB, but they are Intercessor's own implementation, not
+ * the upstream library. Loads the class files in dependency order and guards
+ * against double-loading them within Intercessor.
  *
  * Load order matches class inheritance:
  * Column → Schema → Row → Table → Query

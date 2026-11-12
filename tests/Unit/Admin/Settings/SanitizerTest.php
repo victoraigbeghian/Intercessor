@@ -69,10 +69,21 @@ class SanitizerTest extends TestCase {
 		$this->assertSame( '0', $result['auto_approve'] );
 	}
 
-	public function test_unchecked_checkbox_is_absent_from_result(): void {
-		// Unchecked checkboxes are not submitted — missing keys are skipped.
+	public function test_unchecked_checkbox_defaults_to_zero(): void {
+		// A browser does not submit an unchecked checkbox. The sanitizer has
+		// to default the field to '0' so a previously-ticked value does not
+		// survive the Renderer's array_merge over the stored settings.
 		$result = $this->sanitizer->sanitize( [], 'general' );
-		$this->assertArrayNotHasKey( 'auto_approve', $result );
+		$this->assertSame( '0', $result['auto_approve'] );
+		$this->assertSame( '0', $result['require_login'] );
+	}
+
+	public function test_missing_non_checkbox_fields_are_still_ignored(): void {
+		// Only checkbox and multicheck fields get a default from absence; a
+		// missing text or number field must stay absent so the Renderer's
+		// array_merge preserves the stored value.
+		$result = $this->sanitizer->sanitize( [], 'general' );
+		$this->assertArrayNotHasKey( 'max_requests_per_day', $result );
 	}
 
 	// -------------------------------------------------------------------------

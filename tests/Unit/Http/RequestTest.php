@@ -135,9 +135,16 @@ class RequestTest extends TestCase {
 		$this->assertSame( [ '1', '2', '3' ], $req->get_array( 'ids' ) );
 	}
 
-	public function test_get_array_returns_empty_for_scalar(): void {
-		$req = new Request( [], [ 'ids' => 'not-an-array' ], [] );
-		$this->assertSame( [], $req->get_array( 'ids' ) );
+	public function test_get_array_splits_comma_separated_scalar(): void {
+		$req = new Request( [], [ 'ids' => '1,2,3' ], [] );
+		$this->assertSame( [ '1', '2', '3' ], $req->get_array( 'ids' ) );
+	}
+
+	public function test_get_array_wraps_single_scalar(): void {
+		// A single value without commas is treated as a one-element list.
+		// This covers form posts where one ID arrives without the trailing comma.
+		$req = new Request( [], [ 'ids' => 'alpha' ], [] );
+		$this->assertSame( [ 'alpha' ], $req->get_array( 'ids' ) );
 	}
 
 	public function test_get_int_array_converts_and_filters(): void {

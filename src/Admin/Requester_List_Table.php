@@ -267,7 +267,7 @@ final class Requester_List_Table extends WP_List_Table {
 	 */
 	protected function column_date_created( $item ): string {
 		return esc_html(
-			mysql2date( get_option( 'date_format' ), $item->date_created )
+			\Intercessor\Util\Local_Time::format( get_option( 'date_format' ), $item->date_created )
 		);
 	}
 }

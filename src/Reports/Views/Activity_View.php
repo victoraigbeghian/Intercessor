@@ -57,7 +57,7 @@ final class Activity_View {
 		);
 
 		if ( 'all_time' !== $period ) {
-			[ $after, $before ] = Date::period_boundaries( $period );
+			[ $after, $before ] = Date::period_boundaries_utc( $period );
 			$sql_total .= $wpdb->prepare(
 				' AND pr.date_created >= %s AND pr.date_created < %s',
 				$after,
@@ -237,7 +237,7 @@ final class Activity_View {
 										<?php echo esc_html( $status_labels[ $row['status'] ] ?? ucfirst( $row['status'] ) ); ?>
 									</span>
 								</td>
-								<td><?php echo esc_html( mysql2date( $date_fmt, $row['date_created'] ) ); ?></td>
+								<td><?php echo esc_html( \Intercessor\Util\Local_Time::format( $date_fmt, $row['date_created'] ) ); ?></td>
 								<td>
 									<a href="<?php echo esc_url( $detail_url ); ?>" class="button button-small">
 										<?php esc_html_e( 'View', 'intercessor' ); ?>

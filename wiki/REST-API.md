@@ -20,7 +20,7 @@ Returns a paginated list of prayer requests. Requires `edit_prayers` capability.
 ```
 GET /requests/{id}
 ```
-Returns a single prayer request by ID. Requires `edit_prayers` capability.
+Returns a single prayer request by ID. Public for approved, public requests. Any other request is returned only to callers with the `edit_prayers` capability; everyone else receives `404`.
 
 #### Create Request
 ```
@@ -40,7 +40,7 @@ Updates the status of a prayer request (approve, reject, mark as spam). Requires
 ```
 GET /requests/{id}/history
 ```
-Returns the prayer activity history for a specific request. Requires authentication.
+Returns the status-change history for a specific request. Follows the same visibility rule as `GET /requests/{id}`. Callers without `edit_prayers` receive only `id`, `prayer_request_id`, `old_status`, `new_status` and `date_created`; `actor_user_id` and `note` are moderator-only.
 
 ### Notes
 

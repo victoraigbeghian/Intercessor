@@ -1,6 +1,6 @@
 # Database Schema
 
-Intercessor creates six custom tables using the [BerlinDB](https://github.com/berlindb/core) library. All tables use the WordPress table prefix (e.g., `wp_intercessor_prayer_requests`). Each table stores its schema version in the `wp_options` table under the key `{table_name}_db_version`.
+Intercessor creates six custom tables through its built-in data layer (see [Architecture](Architecture)). All tables use the WordPress table prefix (e.g., `wp_intercessor_prayer_requests`). Each table stores its schema version in the `wp_options` table under the key `{table_name}_db_version`.
 
 ## Tables
 
@@ -82,7 +82,7 @@ Notes attached to requester profiles (separate from prayer-level notes).
 
 ## Querying Data
 
-Each table has a corresponding Query class in `Intercessor\Database\Query\` that extends BerlinDB's base Query. Example:
+Each table has a corresponding Query class in `Intercessor\Database\Query\` that extends the data layer's base Query (`Intercessor\BerlinDB\Query`). Example:
 
 ```php
 use Intercessor\Database\Query\Prayer_Request_Query;
