@@ -4,7 +4,7 @@ Tags:              prayer, prayer request, church, ministry, community
 Requires at least: 6.3
 Tested up to:      7.1
 Requires PHP:      8.0
-Stable tag:        1.1.2
+Stable tag:        1.1.3
 License:           GPL-2.0-or-later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -64,7 +64,7 @@ Intercessor has been actively used on our website for several years, serving as 
 * **CSV exports** — prayer requests, requesters, prayed counts, and plugin settings.
 * **REST API** — 9 endpoints covering requests, requesters, history, and notes.
 * **Six database tables** — all data stored locally; nothing sent to external services except reCAPTCHA.
-* **No external dependencies** — BerlinDB is bundled; no Composer required on the server.
+* **No external dependencies** — the custom-table data layer ships inside the plugin; no Composer required on the server.
 
 == Installation ==
 
@@ -140,6 +140,26 @@ Other JavaScript files in `assets/js/public/` and `assets/js/admin/` are hand-wr
 
 == Changelog ==
 
+= 1.1.3 =
+* Fixed unchecking a checkbox on the Settings screen not saving — Show Site Terms, Show Privacy Policy, Require Acceptance of Terms, and every other checkbox now stay unticked after save. Reported by @nicolvvw on wordpress.org.
+* Fixed marking a prayer request `private` from the admin leaving the `is_public` flag on; private rows now also drop the public-visibility flag, and moves out of private restore it.
+* Security: `GET /intercessor/v1/requests/{id}` and `GET /intercessor/v1/requests/{id}/history` returned pending, rejected and archived prayer requests to unauthenticated visitors. Callers without the `edit_prayers` capability now receive only approved, public requests; anything else answers 404.
+* Security: the public history response no longer includes the moderator's WordPress user ID (`actor_user_id`). Public responses are now built from an allow-list of fields.
+* Security: accounts created through the prayer form can no longer log in until the email address is confirmed. The pending flag was previously shown in the admin but never checked at login. Completing a password reset also confirms the address, so an expired confirmation link does not lock anyone out.
+* Security: logged-in users can no longer submit a prayer request under a different email address. The server now uses the account email; the form field was only read-only in the browser.
+* Security: added an hourly submission limit per IP address (20 by default, filterable with `intercessor_max_requests_per_ip_per_hour`). The existing per-email limit could be bypassed by changing the email address on each submission. Setting "Max Requests Per Email / Day" to 0 disables both limits.
+* Security: CSV exports now neutralise cells that a spreadsheet would run as a formula (values starting with `=`, `+`, `-` or `@`).
+* Fixed bulk status changes still emailing requesters whose request was already in the target status. The 1.1.2 fix had no effect because the database layer reports a no-op write as a successful update; unchanged requests are now skipped before the update and no history entry is written for them.
+* Fixed the single-request status form emailing the requester when the same status was saved again, for example to record a moderator note.
+* Fixed "Prevent Duplicate Requests" comparing every submitter against the first requester in the database. Genuine duplicates from other requesters were accepted, and unrelated submitters were blocked from reusing a subject the first requester had used.
+* Fixed notes always being saved as private from the admin forms. Unticking "Private (admin only)" now saves a shared note, on both prayer requests and requesters.
+* Fixed accounts created through the prayer form never being linked to their requester record. Those users saw an empty Prayer History, could not edit or delete their own requests, and did not show the "resend confirmation" and "confirm manually" actions in the admin. New accounts are now linked when created, an existing guest record is linked when its owner submits while logged in, and existing records are repaired once on upgrade.
+* Fixed dates and times being shown in UTC instead of the site timezone on the Prayer Wall, Prayer History, and admin screens.
+* Fixed report periods ("today", "this week", "this month") and the daily and weekly charts using UTC days. Requests submitted near midnight were counted in the wrong day, week or month.
+* Fixed editing your own private prayer request turning it into a pending request. Private requests now stay private, edits to other requests are recorded in the status history, and edited text is checked by the profanity filter.
+* Fixed status changes made through the REST API not notifying the requester, unlike the admin screens. The endpoint also answers 404 instead of 500 for a request that does not exist.
+* Fixed uninstall leaving six table-version options behind in `wp_options`.
+
 = 1.1.2 =
 * Fixed bulk status-change action sending notification emails to all selected requesters even when their request was already in the target status — notifications now go only to requesters whose status was actually changed.
 * Fixed `Request::input()` returning an empty string instead of the caller's `$default` when a key is present in POST or GET but submitted with a blank value.
@@ -185,6 +205,9 @@ Other JavaScript files in `assets/js/public/` and `assets/js/admin/` are hand-wr
 * Initial release.
 
 == Upgrade Notice ==
+
+= 1.1.3 =
+Security and bug-fix release. Unpublished requests are no longer readable through the REST API. Accounts that never confirmed their email are logged out and must confirm or reset their password. Dates now follow the site timezone. Update recommended.
 
 = 1.1.2 =
 Bug fixes: bulk moderation no longer sends spurious notification emails to requesters whose status did not change. Input handling and reCAPTCHA IP detection corrected. Dead code removed. No database changes; no action required on upgrade.

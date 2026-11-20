@@ -39,6 +39,8 @@ final class Moderation_Handler {
 	 * Process the moderation form submission and redirect.
 	 *
 	 * @since  1.0.0
+	 * @since  1.1.3 Sends the status-change notification only when the
+	 *               status actually changed.
 	 * @return void
 	 */
 	public static function handle(): void {
@@ -61,11 +63,20 @@ final class Moderation_Handler {
 			exit;
 		}
 
-		$query   = new Prayer_Request_Query();
+		$query = new Prayer_Request_Query();
+
+		// Read the current status first so the requester is only emailed
+		// when the status really changes. Re-saving the same status (for
+		// example to record a moderator note) must not send a notification.
+		$current        = $query->get_item( $id );
+		$status_changed = $current && $current->status !== $newStatus;
+
 		$updated = $query->update_status( $id, $newStatus, $note );
 
 		if ( $updated ) {
-			Notifier::notify_status_change( $id, $newStatus );
+			if ( $status_changed ) {
+				Notifier::notify_status_change( $id, $newStatus );
+			}
 			wp_safe_redirect( add_query_arg( 'updated', '1', $listUrl ) );
 		} else {
 			wp_safe_redirect( add_query_arg( 'error', '1', $listUrl ) );

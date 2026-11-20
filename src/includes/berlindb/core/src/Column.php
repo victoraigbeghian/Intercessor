@@ -1,9 +1,12 @@
 <?php
 /**
- * BerlinDB Column class — bundled with Intercessor.
+ * Column base class of Intercessor's custom-table data layer.
  *
- * Original library: https://github.com/berlindb/core
- * License:          GPL-2.0-or-later
+ * Written for Intercessor and modelled on the structure of BerlinDB
+ * (https://github.com/berlindb/core). It is not a copy of that library and
+ * does not share its API; see wiki/Architecture.md for the differences.
+ *
+ * License: GPL-2.0-or-later
  *
  * @package Intercessor
  * @since   1.0.0

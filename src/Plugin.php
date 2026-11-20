@@ -102,8 +102,8 @@ final class Plugin {
 		( new Rest_Api() )->register();
 		( new Cron_Handler() )->register();
 
-		// Email confirmation handler — fires on any page load that carries the
-		// intercessor_confirm_email query parameter.
-		add_action( 'init', array( Registration_Handler::class, 'handle_confirmation' ), 10 );
+		// Account registration: the email confirmation link, the login block
+		// for unconfirmed accounts, and confirmation by password reset.
+		Registration_Handler::register();
 	}
 }

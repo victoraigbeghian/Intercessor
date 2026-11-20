@@ -17,9 +17,9 @@
                 vendor/bin/phpunit
                 vendor/bin/phpunit --testsuite unit
 
-        integration — Requires a real WordPress test installation + test DB.
+        integration Requires a real WordPress test installation + test DB.
                       Set WP_TESTS_DIR before running:
-                      WP_TESTS_DIR=/tmp/wordpress-tests-lib vendor/bin/phpunit - -testsuite integration
+                      WP_TESTS_DIR=/tmp/wordpress-tests-lib vendor/bin/phpunit (flag: testsuite integration) (flag: bootstrap tests/bootstrap-integration.php)
     -->
     <testsuites>
 
@@ -29,7 +29,6 @@
 
         <testsuite name="integration">
             <directory>tests/Integration</directory>
-            <bootstrap>tests/bootstrap-integration.php</bootstrap>
         </testsuite>
 
     </testsuites>
