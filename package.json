@@ -34,7 +34,7 @@
         "@wordpress/element": "*",
         "@wordpress/i18n": "*",
         "@wordpress/upload-media": "^0.37.0",
-        "fast-uri": "^4.2.1",
+        "fast-uri": "^4.2.3",
         "moment": "^2.31.0",
         "postcss-selector-parser": "^7.1.6",
         "source-map-js": "^1.2.2"

@@ -52,3 +52,6 @@ phpcs.xml
 
 # POT File
 languages/intercessor.pot
+
+# dist 
+dist
