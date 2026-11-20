@@ -45,6 +45,8 @@ final class Submission_Pipeline {
 	 * Execute the submission pipeline.
 	 *
 	 * @since  1.0.0
+	 * @since  1.1.3 Ignores the supplied email for logged-in submitters and
+	 *               uses their account email instead.
 	 *
 	 * @param  string $email        Sanitized, validated email address.
 	 * @param  string $first_name   Sanitized first name.
@@ -69,7 +71,33 @@ final class Submission_Pipeline {
 		bool $is_private = false
 	): int|\WP_Error {
 
+		// ── 0. Logged-in submitters always use their own account email ─────
+		// The form shows the email read-only for logged-in users, but that is
+		// only a browser attribute; the posted value can be anything. Using
+		// the account's address here covers the AJAX form and the REST route
+		// alike. Moderators are exempt so they can still enter a request on
+		// someone else's behalf through the REST API.
+		if ( is_user_logged_in() && ! current_user_can( 'edit_prayers' ) ) {
+			$account_email = (string) wp_get_current_user()->user_email;
+
+			if ( '' !== $account_email ) {
+				$email = $account_email;
+			}
+		}
+
 		// ── 1. Rate limit ──────────────────────────────────────────────────
+		// Per client first: it does not depend on anything the client sends.
+		// Moderators entering requests on behalf of others are not limited.
+		$limit_client = ! current_user_can( 'edit_prayers' );
+
+		if ( $limit_client && ! Rate_Limiter::is_client_allowed() ) {
+			return new \WP_Error(
+				'intercessor_client_rate_limited',
+				__( 'Too many prayer requests have been sent from your network. Please try again later.', 'intercessor' ),
+				array( 'status' => 429 )
+			);
+		}
+
 		if ( ! Rate_Limiter::is_allowed( $email ) ) {
 			$limit = Rate_Limiter::get_limit();
 
@@ -152,6 +180,10 @@ final class Submission_Pipeline {
 				__( 'Could not save your prayer request.', 'intercessor' ),
 				array( 'status' => 500 )
 			);
+		}
+
+		if ( $limit_client ) {
+			Rate_Limiter::record_client_submission();
 		}
 
 		// ── 6. Notifications ───────────────────────────────────────────────

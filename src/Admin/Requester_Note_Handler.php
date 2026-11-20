@@ -75,7 +75,11 @@ final class Requester_Note_Handler {
 
 		$requester_id = $req->get_int( 'requester_id' );
 		$content      = $req->get_textarea( 'note_content' );
-		$private      = (bool) $req->input( 'note_is_private', true );
+
+		// A checkbox is only submitted when ticked, so presence is the value.
+		// Reading it with a default of true made every note private, because
+		// an unticked box is indistinguishable from a missing key.
+		$private      = $req->has( 'note_is_private' );
 		$redirect     = self::notes_tab_url( $requester_id );
 
 		if ( $requester_id === 0 || $content === '' ) {

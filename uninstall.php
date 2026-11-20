@@ -29,12 +29,12 @@ delete_option( 'intercessor_version' );
 delete_option( 'intercessor_settings' );
 
 // Remove per-table schema version options written by the BerlinDB Table layer.
-delete_option( 'db_version_intercessor_prayer_requests' );
-delete_option( 'db_version_intercessor_requesters' );
-delete_option( 'db_version_intercessor_prayer_history' );
-delete_option( 'db_version_intercessor_prayer_notes' );
-delete_option( 'db_version_intercessor_prayed_counts' );
-delete_option( 'db_version_intercessor_requester_notes' );
+delete_option( 'intercessor_prayer_requests_db_version' );
+delete_option( 'intercessor_requesters_db_version' );
+delete_option( 'intercessor_prayer_history_db_version' );
+delete_option( 'intercessor_prayer_notes_db_version' );
+delete_option( 'intercessor_prayed_counts_db_version' );
+delete_option( 'intercessor_requester_notes_db_version' );
 
 // Remove the six custom prayer capabilities from all roles, then remove
 // the three custom roles (prayer_manager, prayer_warrior, requester).

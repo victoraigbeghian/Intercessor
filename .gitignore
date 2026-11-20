@@ -37,6 +37,7 @@ $RECYCLE.BIN/
 .metadata
 /build
 tmp/
+dist
 tests/clover.xml
 .cache
 

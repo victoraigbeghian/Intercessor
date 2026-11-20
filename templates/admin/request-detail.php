@@ -158,11 +158,11 @@ $backUrl = admin_url( 'admin.php?page=intercessor-requests' );
 					</tr>
 					<tr>
 						<th><?php esc_html_e( 'Submitted', 'intercessor' ); ?></th>
-						<td><?php echo esc_html( mysql2date( $dateFormat, $request->date_created ) ); ?></td>
+						<td><?php echo esc_html( \Intercessor\Util\Local_Time::format( $dateFormat, $request->date_created ) ); ?></td>
 					</tr>
 					<tr>
 						<th><?php esc_html_e( 'Last Updated', 'intercessor' ); ?></th>
-						<td><?php echo esc_html( mysql2date( $dateFormat, $request->date_modified ) ); ?></td>
+						<td><?php echo esc_html( \Intercessor\Util\Local_Time::format( $dateFormat, $request->date_modified ) ); ?></td>
 					</tr>
 				</table>
 
@@ -324,7 +324,7 @@ $backUrl = admin_url( 'admin.php?page=intercessor-requests' );
 								<div class="intercessor-note__meta">
 									<span class="intercessor-note__author"><?php echo esc_html( $authorName ); ?></span>
 									<span class="intercessor-note__date">
-										<?php echo esc_html( mysql2date( $dateFormat, $note->date_created ) ); ?>
+										<?php echo esc_html( \Intercessor\Util\Local_Time::format( $dateFormat, $note->date_created ) ); ?>
 									</span>
 									<?php if ( $note->is_private() ) : ?>
 										<span class="intercessor-note__badge intercessor-note__badge--private">

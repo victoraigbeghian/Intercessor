@@ -3,9 +3,8 @@
  * Plugin Name:       Intercessor
  * Plugin URI:        https://wordpress.org/plugins/intercessor
  * Description:       The best free prayer request plugin for WordPress. Collect, manage, and organize prayer requests with moderation, privacy controls, reports, exports, imports, a prayer wall, and a prayer history page.
- * Version:           1.1.2
+ * Version:           1.1.3
  * Requires at least: 6.3
- * Tested up to:      7.1
  * Requires PHP:      8.0
  * Author:            Victor Aigbeghian
  * Author URI:        https://profiles.wordpress.org/shepherd365/
@@ -28,7 +27,7 @@ defined( 'ABSPATH' ) || exit;
 // -----------------------------------------------------------------------------
 
 /** @since 1.0.0 @var string Current plugin version. */
-define( 'INTERCESSOR_VERSION',  '1.1.2' );
+define( 'INTERCESSOR_VERSION',  '1.1.3' );
 
 /** @since 1.0.0 @var string Absolute path to the main plugin file. */
 define( 'INTERCESSOR_FILE',     __FILE__ );

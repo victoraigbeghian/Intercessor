@@ -449,11 +449,11 @@ final class Requester_View {
 					<?php endif; ?>
 					<tr>
 						<th><?php esc_html_e( 'Registered', 'intercessor' ); ?></th>
-						<td><?php echo esc_html( mysql2date( $date_fmt, $r->date_created ) ); ?></td>
+						<td><?php echo esc_html( \Intercessor\Util\Local_Time::format( $date_fmt, $r->date_created ) ); ?></td>
 					</tr>
 					<tr>
 						<th><?php esc_html_e( 'Last Updated', 'intercessor' ); ?></th>
-						<td><?php echo esc_html( mysql2date( $date_fmt, $r->date_modified ) ); ?></td>
+						<td><?php echo esc_html( \Intercessor\Util\Local_Time::format( $date_fmt, $r->date_modified ) ); ?></td>
 					</tr>
 				</table>
 			</div>
@@ -581,7 +581,7 @@ final class Requester_View {
 									</span>
 								</td>
 								<td><?php echo absint( $prayed_total ); ?></td>
-								<td><?php echo esc_html( mysql2date( $date_fmt, $prayer->date_created ) ); ?></td>
+								<td><?php echo esc_html( \Intercessor\Util\Local_Time::format( $date_fmt, $prayer->date_created ) ); ?></td>
 								<td>
 									<a href="<?php echo esc_url( $detail_url ); ?>" class="button button-small">
 										<?php esc_html_e( 'View', 'intercessor' ); ?>
@@ -699,7 +699,7 @@ final class Requester_View {
 										<div class="intercessor-timeline-meta">
 											<?php if ( $entry->date_created ) : ?>
 												<time datetime="<?php echo esc_attr( $entry->date_created ); ?>">
-													<?php echo esc_html( mysql2date( $date_fmt, $entry->date_created ) ); ?>
+													<?php echo esc_html( \Intercessor\Util\Local_Time::format( $date_fmt, $entry->date_created ) ); ?>
 												</time>
 											<?php endif; ?>
 											<?php if ( $actor ) : ?>
@@ -802,7 +802,7 @@ final class Requester_View {
 							<div class="intercessor-note__meta">
 								<span class="intercessor-note__author"><?php echo esc_html( $author_name ); ?></span>
 								<span class="intercessor-note__date">
-									<?php echo esc_html( mysql2date( $date_fmt, $note->date_created ) ); ?>
+									<?php echo esc_html( \Intercessor\Util\Local_Time::format( $date_fmt, $note->date_created ) ); ?>
 								</span>
 								<span class="intercessor-note__badge <?php echo $note->is_private() ? 'intercessor-note__badge--private' : 'intercessor-note__badge--shared'; ?>">
 									<?php echo $note->is_private() ? esc_html__( 'Private', 'intercessor' ) : esc_html__( 'General', 'intercessor' ); ?>
@@ -917,7 +917,7 @@ final class Requester_View {
 								<div class="intercessor-note__meta">
 									<span class="intercessor-note__author"><?php echo esc_html( $pn_name ); ?></span>
 									<span class="intercessor-note__date">
-										<?php echo esc_html( mysql2date( $date_fmt, $pn->date_created ) ); ?>
+										<?php echo esc_html( \Intercessor\Util\Local_Time::format( $date_fmt, $pn->date_created ) ); ?>
 									</span>
 									<span class="intercessor-note__badge <?php echo $pn->is_private() ? 'intercessor-note__badge--private' : 'intercessor-note__badge--shared'; ?>">
 										<?php echo $pn->is_private() ? esc_html__( 'Private', 'intercessor' ) : esc_html__( 'Shared', 'intercessor' ); ?>

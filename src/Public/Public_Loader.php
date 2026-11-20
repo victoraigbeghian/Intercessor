@@ -302,11 +302,14 @@ final class Public_Loader {
 	/**
 	 * AJAX handler: update the subject/content of the current user's own request.
 	 *
-	 * Resets status to 'pending' so the updated request goes through moderation.
-	 * Requires login; ownership is verified against the wp_user_id on the
-	 * requester record.
+	 * Returns the request to 'pending' so the edit goes through moderation,
+	 * except for private requests, which stay private. Requires login;
+	 * ownership is verified against the wp_user_id on the requester record.
 	 *
 	 * @since 1.1.0
+	 * @since 1.1.3 Private requests keep their status, the return to pending
+	 *              is written to the history, and edited text is run through
+	 *              the profanity filter.
 	 */
 	public function handle_update_own_request(): void {
 		if ( ! is_user_logged_in() ) {
@@ -346,18 +349,47 @@ final class Public_Loader {
 			wp_send_json_error( array( 'message' => __( 'Subject and prayer request are required.', 'intercessor' ) ), 400 );
 		}
 
-		$updated = $prayer_query->update_item( $request_id, array(
+		$changes = array(
 			'subject' => $subject,
 			'content' => $content,
-			'status'  => 'pending', // back to pending so admin reviews the changes.
-		) );
+		);
+
+		// Edited text goes through the same check as a new submission, so an
+		// edit cannot be used to get wording past the profanity filter.
+		if ( Profanity_Filter::is_enabled() ) {
+			$matched = array_unique(
+				array_merge(
+					Profanity_Filter::get_matched_words( $subject ),
+					Profanity_Filter::get_matched_words( $content )
+				)
+			);
+
+			if ( ! empty( $matched ) ) {
+				$changes['moderator_note'] = Profanity_Filter::build_moderator_note( $matched );
+			}
+		}
+
+		$updated = $prayer_query->update_item( $request_id, $changes );
 
 		if ( ! $updated ) {
 			wp_send_json_error( array( 'message' => __( 'Could not update the prayer request.', 'intercessor' ) ), 500 );
 		}
 
+		// A private request stays private: it is never shown publicly, so an
+		// edit needs no re-approval, and forcing it to pending dropped it out
+		// of the Private filter. Anything else goes back to pending for
+		// review, through update_status() so the change is in the history.
+		if ( ! $prayer->is_private_status() && ! $prayer->is_pending() ) {
+			$prayer_query->update_status(
+				$request_id,
+				'pending',
+				__( 'Edited by the requester; returned to pending for review.', 'intercessor' )
+			);
+		}
+
 		wp_send_json_success( array(
 			'message' => __( 'Saved — your request will be reviewed shortly.', 'intercessor' ),
+			'status'  => $prayer->is_private_status() ? 'private' : 'pending',
 		) );
 	}
 

@@ -18,6 +18,8 @@ use Intercessor\Database\Query\Prayer_Note_Query;
 use Intercessor\Database\Query\Prayer_Request_Query;
 use Intercessor\Database\Query\Requester_Query;
 use Intercessor\Database\Row\Prayer_Note;
+use Intercessor\Database\Row\Prayer_Request;
+use Intercessor\Util\Notifier;
 use Intercessor\Util\Submission_Pipeline;
 use WP_REST_Request;
 use WP_REST_Response;
@@ -55,6 +57,16 @@ final class Rest_Api {
 	 * @var   string
 	 */
 	private const NAMESPACE = 'intercessor/v1';
+
+	/**
+	 * History columns returned to callers without the edit_prayers capability.
+	 *
+	 * Everything else (actor_user_id, note) is moderator-only.
+	 *
+	 * @since 1.1.3
+	 * @var   string[]
+	 */
+	private const PUBLIC_HISTORY_FIELDS = array( 'id', 'prayer_request_id', 'old_status', 'new_status', 'date_created' );
 
 	/**
 	 * Register the 'rest_api_init' hook.
@@ -292,9 +304,17 @@ final class Rest_Api {
 	/**
 	 * Return a single prayer request by primary key.
 	 *
+	 * Callers without the edit_prayers capability only ever receive requests
+	 * that are approved and public. Anything else answers 404, not 403, so
+	 * the response does not confirm that an unpublished request exists.
+	 *
 	 * @since  1.0.0
+	 * @since  1.1.3 Requires approved status for non-moderators. Pending,
+	 *               rejected and archived requests were previously returned
+	 *               to anyone because only is_public and the private status
+	 *               were checked.
 	 * @param  WP_REST_Request $request REST request with id.
-	 * @return WP_REST_Response         200, 403, or 404.
+	 * @return WP_REST_Response         200 or 404.
 	 */
 	public function get_request( WP_REST_Request $request ): WP_REST_Response {
 		$query = new Prayer_Request_Query();
@@ -305,14 +325,8 @@ final class Rest_Api {
 			return new WP_REST_Response( array( 'message' => __( 'Not found.', 'intercessor' ) ), 404 );
 		}
 
-		// Block access to non-public requests for unauthenticated / non-moderator callers.
-		if ( ! $item->is_public() && ! current_user_can( 'edit_prayers' ) ) {
-			return new WP_REST_Response( array( 'message' => __( 'Forbidden.', 'intercessor' ) ), 403 );
-		}
-
-		// Private requests are hidden from public REST consumers.
-		if ( $item->is_private_status() && ! current_user_can( 'edit_prayers' ) ) {
-			return new WP_REST_Response( array( 'message' => __( 'Forbidden.', 'intercessor' ) ), 403 );
+		if ( ! $this->can_view_request( $item ) ) {
+			return new WP_REST_Response( array( 'message' => __( 'Not found.', 'intercessor' ) ), 404 );
 		}
 
 		return new WP_REST_Response( $this->prepare_request_item( $item ), 200 );
@@ -381,23 +395,39 @@ final class Rest_Api {
 	/**
 	 * Update the status of a prayer request.
 	 *
-	 * Also writes a PrayerHistory entry via Prayer_Request_Query::update_status().
+	 * Also writes a PrayerHistory entry via Prayer_Request_Query::update_status()
+	 * and notifies the requester when the status changed.
 	 *
 	 * @since  1.0.0
+	 * @since  1.1.3 Sends the status-change notification, as the admin
+	 *               screens do, and answers 404 for an unknown request.
 	 * @param  WP_REST_Request $request REST request with id, status, note.
-	 * @return WP_REST_Response         200 or 500.
+	 * @return WP_REST_Response         200, 404, or 500.
 	 */
 	public function update_status( WP_REST_Request $request ): WP_REST_Response {
-		$query   = new Prayer_Request_Query();
-		$updated = $query->update_status(
-			$request->get_param( 'id' ),
-			$request->get_param( 'status' ),
-			$request->get_param( 'note' )
-		);
+		$query      = new Prayer_Request_Query();
+		$id         = (int) $request->get_param( 'id' );
+		$new_status = (string) $request->get_param( 'status' );
+
+		$current = $query->get_item( $id );
+
+		if ( ! $current ) {
+			return new WP_REST_Response( array( 'message' => __( 'Not found.', 'intercessor' ) ), 404 );
+		}
+
+		$status_changed = $current->status !== $new_status;
+
+		$updated = $query->update_status( $id, $new_status, (string) $request->get_param( 'note' ) );
 
 		// update_status() returns false on failure, true on success.
 		if ( ! $updated ) {
 			return new WP_REST_Response( array( 'message' => __( 'Update failed.', 'intercessor' ) ), 500 );
+		}
+
+		// Same rule as the admin status form: tell the requester, but only
+		// when the status really changed.
+		if ( $status_changed ) {
+			Notifier::notify_status_change( $id, $new_status );
 		}
 
 		return new WP_REST_Response( array( 'updated' => true ), 200 );
@@ -420,9 +450,16 @@ final class Rest_Api {
 	/**
 	 * Return the status-change history timeline for a prayer request.
 	 *
+	 * Follows the same visibility rule as get_request(). Callers without
+	 * edit_prayers receive only the fields listed in PUBLIC_HISTORY_FIELDS.
+	 *
 	 * @since  1.0.0
+	 * @since  1.1.3 Requires approved status for non-moderators, and builds
+	 *               the public response from an allow-list. The previous
+	 *               unset() named a moderator_id key that does not exist,
+	 *               so actor_user_id was exposed.
 	 * @param  WP_REST_Request $request REST request with id.
-	 * @return WP_REST_Response         200, 403, or 404.
+	 * @return WP_REST_Response         200 or 404.
 	 */
 	public function get_history( WP_REST_Request $request ): WP_REST_Response {
 		$pqQuery = new Prayer_Request_Query();
@@ -432,26 +469,23 @@ final class Rest_Api {
 			return new WP_REST_Response( array( 'message' => __( 'Not found.', 'intercessor' ) ), 404 );
 		}
 
-		// Block access to private requests for unauthenticated / non-moderator callers.
-		if ( ! $parent->is_public() && ! current_user_can( 'edit_prayers' ) ) {
-			return new WP_REST_Response( array( 'message' => __( 'Forbidden.', 'intercessor' ) ), 403 );
+		if ( ! $this->can_view_request( $parent ) ) {
+			return new WP_REST_Response( array( 'message' => __( 'Not found.', 'intercessor' ) ), 404 );
 		}
 
 		$historyQuery = new Prayer_History_Query();
 		$history      = $historyQuery->get_for_request( $request->get_param( 'id' ) );
 
-		// Strip moderator-only fields (moderator ID, internal notes) from the
-		// response for callers who are not moderators. This prevents leaking
-		// admin user IDs and private notes through the public endpoint.
-		$can_moderate = current_user_can( 'edit_prayers' );
+		// Moderators get every column. Everyone else gets an allow-list, so a
+		// column added to the history table later is private by default.
+		$can_moderate  = current_user_can( 'edit_prayers' );
+		$public_fields = array_flip( self::PUBLIC_HISTORY_FIELDS );
 
 		$sanitized = array_map(
-			static function ( $row ) use ( $can_moderate ) {
+			static function ( $row ) use ( $can_moderate, $public_fields ) {
 				$data = (array) $row;
-				if ( ! $can_moderate ) {
-					unset( $data['moderator_id'], $data['note'] );
-				}
-				return $data;
+
+				return $can_moderate ? $data : array_intersect_key( $data, $public_fields );
 			},
 			$history
 		);
@@ -602,6 +636,25 @@ final class Rest_Api {
 	 */
 	public function can_moderate(): bool {
 		return current_user_can( 'edit_prayers' );
+	}
+
+	/**
+	 * Whether the current caller may read the given prayer request.
+	 *
+	 * Moderators may read every request. Everyone else may read a request
+	 * only when it is both public and approved, which is the same rule the
+	 * Prayer Wall and the GET /requests collection apply.
+	 *
+	 * @since  1.1.3
+	 * @param  Prayer_Request $item Prayer request row.
+	 * @return bool                 True when the caller may read the request.
+	 */
+	private function can_view_request( Prayer_Request $item ): bool {
+		if ( current_user_can( 'edit_prayers' ) ) {
+			return true;
+		}
+
+		return $item->is_public() && $item->is_approved();
 	}
 
 	// -------------------------------------------------------------------------

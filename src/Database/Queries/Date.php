@@ -19,14 +19,13 @@ defined( 'ABSPATH' ) || exit;
  * This class is adapted from Intercessor\BerlinDB\Queries\Date (uploaded) and
  * WordPress's WP_Date_Query. Two significant changes are made:
  *
- * 1. Timezone fix — the original class uses time() (UTC) and gmdate() (UTC)
- *    throughout. Intercessor stores date_created in the site's local timezone,
- *    so all boundary calculations must use the site timezone. This class
- *    replaces every UTC call:
+ * 1. Timezone handling — the original class uses time() and gmdate() (UTC)
+ *    throughout. Calendar periods here are worked out in the site timezone
+ *    instead, so "today" means the site's local day.
  *
- * @note  Dates are stored in the site's local timezone; all boundary
- *      gmdate()  → wp_date()                     // locale-aware formatting
- *         calculations now use time() with wp_date() for correct formatting.
+ * @note  Intercessor stores date_created and date_modified in UTC. The
+ *        period helpers return site-local boundaries; code that compares
+ *        them with a stored column must use period_boundaries_utc().
  *
  *    Period helpers (today, week, month, year) use DateTimeImmutable with
  *    wp_timezone() so boundaries are always in local calendar time.
@@ -328,7 +327,7 @@ class Date {
 			return new self();
 		}
 
-		[ $after, $before ] = self::period_boundaries( $period );
+		[ $after, $before ] = self::period_boundaries_utc( $period );
 
 		return new self( array(
 			'column'    => $column,
@@ -413,6 +412,26 @@ class Date {
 		return array(
 			$after->format( 'Y-m-d H:i:s' ),
 			$before->format( 'Y-m-d H:i:s' ),
+		);
+	}
+
+	/**
+	 * Same boundaries as period_boundaries(), converted to UTC.
+	 *
+	 * The stored date columns are UTC, so this is the form to use in a WHERE
+	 * clause. period_boundaries() remains the form to use when labelling a
+	 * period or building a local day-by-day series.
+	 *
+	 * @since  1.1.3
+	 * @param  string $period  Named period string (see for_period()).
+	 * @return array{0: string, 1: string}  [ $after, $before ] as Y-m-d H:i:s in UTC.
+	 */
+	public static function period_boundaries_utc( string $period ): array {
+		[ $after, $before ] = self::period_boundaries( $period );
+
+		return array(
+			\Intercessor\Util\Local_Time::to_utc( $after ),
+			\Intercessor\Util\Local_Time::to_utc( $before ),
 		);
 	}
 
